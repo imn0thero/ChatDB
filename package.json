@@ -4,7 +4,7 @@
   "description": "Private 2-user chat with media, video call, and auto-delete messages",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node app.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.0",
