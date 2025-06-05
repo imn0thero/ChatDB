@@ -43,6 +43,7 @@ io.on('connection', socket => {
 
   // Kirim pesan teks
   socket.on('chatMessage', msg => {
+    if (!currentUser) return; // pastikan sudah login
     const message = {
       id: uuidv4(),
       user: currentUser,
@@ -55,6 +56,7 @@ io.on('connection', socket => {
 
   // Edit pesan
   socket.on('editMessage', data => {
+    if (!currentUser) return;
     const msg = messages.find(m => m.id === data.id && m.user === currentUser);
     if (msg) {
       msg.text = data.text;
@@ -64,6 +66,7 @@ io.on('connection', socket => {
 
   // Hapus pesan
   socket.on('deleteMessage', id => {
+    if (!currentUser) return;
     const index = messages.findIndex(m => m.id === id && m.user === currentUser);
     if (index !== -1) {
       messages.splice(index, 1);
@@ -73,6 +76,7 @@ io.on('connection', socket => {
 
   // Kirim media
   socket.on('mediaMessage', file => {
+    if (!currentUser) return;
     const media = {
       id: uuidv4(),
       user: currentUser,
