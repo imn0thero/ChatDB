@@ -1,0 +1,4 @@
+body { font-family: sans-serif; margin: 20px; }
+#messages { height: 300px; overflow-y: scroll; border: 1px solid #ccc; margin-bottom: 10px; }
+#online-users { margin-bottom: 10px; color: green; }
+video { width: 200px; margin: 5px; }
