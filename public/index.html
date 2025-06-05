@@ -18,13 +18,130 @@
   <div id="chat-container" style="display:none;">
     <h2>Chat</h2>
     <p>Status: <span id="status">Offline</span></p>
+    <p>Online: <span id="onlineUsers"></span></p>
     <div id="messages" style="height:300px; overflow-y:auto; border:1px solid #ccc; padding:10px;"></div>
     <input id="message" placeholder="Tulis pesan..." />
     <input type="file" id="file-input" />
     <button id="sendBtn">Kirim</button>
+    <button id="logoutBtn">Logout</button>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/main.js"></script>
+  <script>
+    const socket = io();
+    let currentUser = null;
+
+    const loginDiv = document.getElementById('login');
+    const chatDiv = document.getElementById('chat-container');
+    const messagesDiv = document.getElementById('messages');
+    const statusSpan = document.getElementById('status');
+    const onlineUsersSpan = document.getElementById('onlineUsers');
+    const messageInput = document.getElementById('message');
+    const fileInput = document.getElementById('file-input');
+
+    document.getElementById('loginBtn').onclick = () => {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      socket.emit('login', { username, password });
+    };
+
+    socket.on('loginResult', res => {
+      if (res.success) {
+        currentUser = res.user;
+        loginDiv.style.display = 'none';
+        chatDiv.style.display = 'block';
+        statusSpan.innerText = 'Online';
+      } else {
+        document.getElementById('loginError').innerText = res.message;
+      }
+    });
+
+    socket.on('userList', users => {
+      onlineUsersSpan.innerText = users.join(', ');
+    });
+
+    socket.on('loadMessages', msgs => {
+      messagesDiv.innerHTML = '';
+      msgs.forEach(showMessage);
+    });
+
+    socket.on('chatMessage', showMessage);
+    socket.on('mediaMessage', showMessage);
+
+    socket.on('messageEdited', data => {
+      const el = document.getElementById(data.id);
+      if (el) el.querySelector('.text').innerText = data.text + ' (diedit)';
+    });
+
+    socket.on('messageDeleted', id => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    });
+
+    document.getElementById('sendBtn').onclick = () => {
+      const text = messageInput.value;
+      const file = fileInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          socket.emit('mediaMessage', {
+            type: file.type,
+            data: reader.result,
+            name: file.name
+          });
+        };
+        reader.readAsDataURL(file);
+        fileInput.value = '';
+      } else if (text.trim()) {
+        socket.emit('chatMessage', { text });
+      }
+      messageInput.value = '';
+    };
+
+    document.getElementById('logoutBtn').onclick = () => {
+      socket.emit('logout');
+      location.reload();
+    };
+
+    function showMessage(msg) {
+      const div = document.createElement('div');
+      div.id = msg.id;
+
+      let content = `<b>${msg.user}</b>: <span class="text">${msg.text || msg.name || '[Media]'}</span>`;
+
+      if (msg.user === currentUser) {
+        content += `
+          <button onclick="editMessage('${msg.id}')">Edit</button>
+          <button onclick="deleteMessage('${msg.id}')">Hapus</button>`;
+      }
+
+      if (msg.type && msg.data) {
+        if (msg.type.startsWith('image/')) {
+          content += `<br><img src="${msg.data}" alt="${msg.name}" style="max-width:100px;" />`;
+        } else if (msg.type.startsWith('video/')) {
+          content += `<br><video controls src="${msg.data}" style="max-width:150px;"></video>`;
+        } else {
+          content += `<br><a href="${msg.data}" download="${msg.name}">Unduh ${msg.name}</a>`;
+        }
+      }
+
+      div.innerHTML = content;
+      messagesDiv.appendChild(div);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    window.editMessage = function(id) {
+      const newText = prompt('Edit pesan:');
+      if (newText) {
+        socket.emit('editMessage', { id, text: newText });
+      }
+    };
+
+    window.deleteMessage = function(id) {
+      if (confirm('Yakin ingin hapus pesan ini?')) {
+        socket.emit('deleteMessage', id);
+      }
+    };
+  </script>
 </body>
 </html>
