@@ -2,110 +2,104 @@ body {
   font-family: sans-serif;
   background: #f0f0f0;
   margin: 0;
-  padding: 0;
+  padding: 20px;
+}
+
+h2 {
+  margin-top: 0;
 }
 
 #login, #chat-container {
   max-width: 500px;
-  margin: 40px auto;
-  background: white;
+  margin: auto;
+  background: #fff;
   padding: 20px;
   border-radius: 12px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
 input[type="text"],
 input[type="password"],
-input[type="file"] {
-  width: 100%;
-  padding: 10px;
+input[type="file"],
+#message {
+  width: calc(100% - 10px);
+  padding: 8px;
   margin-bottom: 10px;
-  border-radius: 8px;
   border: 1px solid #ccc;
+  border-radius: 6px;
 }
 
-#chat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 10px;
-  margin-bottom: 10px;
+button {
+  padding: 8px 12px;
+  margin-right: 5px;
+  margin-top: 5px;
+  border: none;
+  border-radius: 6px;
+  background-color: #1976d2;
+  color: white;
+  cursor: pointer;
 }
 
-#chat-header span {
-  font-size: 14px;
-  color: green;
+button:hover {
+  background-color: #1565c0;
 }
 
 #messages {
-  height: 320px;
+  height: 300px;
   overflow-y: auto;
   border: 1px solid #ccc;
+  background: #fafafa;
   padding: 10px;
   margin-bottom: 10px;
-  background: #fafafa;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
-.message {
-  margin-bottom: 8px;
+#messages > div {
+  margin-bottom: 10px;
   padding: 8px;
-  background-color: #e6f7ff;
-  border-radius: 8px;
+  background: #e3f2fd;
+  border-radius: 6px;
   position: relative;
 }
 
-.message.you {
-  background-color: #d1ffd1;
-  text-align: right;
+#messages > div b {
+  color: #0d47a1;
 }
 
-.message img {
+#messages img, 
+#messages video {
   max-width: 100%;
+  max-height: 150px;
+  margin-top: 5px;
   border-radius: 6px;
+}
+
+#messages button {
+  font-size: 12px;
+  padding: 4px 8px;
+  margin-top: 5px;
+  margin-right: 4px;
+  background-color: #f44336;
+}
+
+#messages button:hover {
+  background-color: #d32f2f;
+}
+
+#messages .text {
+  display: inline-block;
   margin-top: 5px;
 }
 
-.message .actions {
-  font-size: 12px;
-  margin-top: 4px;
-  text-align: right;
+#status, #onlineUsers {
+  font-weight: bold;
+  color: green;
 }
 
-#input-container {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
+#logoutBtn {
+  background-color: #9e9e9e;
 }
 
-#input-container input[type="text"] {
-  flex-grow: 1;
-  margin-bottom: 0;
-}
-
-#input-container input[type="file"] {
-  flex: 1 1 auto;
-}
-
-#sendBtn {
-  padding: 10px 16px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-#sendBtn:hover {
-  background-color: #0056b3;
-}
-
-.read-status {
-  font-size: 10px;
-  color: #777;
-  margin-top: 4px;
-  display: block;
+#logoutBtn:hover {
+  background-color: #757575;
 }
