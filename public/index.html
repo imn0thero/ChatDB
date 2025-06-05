@@ -7,23 +7,21 @@
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <div id="login-container">
-    <h2>Zzz Login</h2>
-    <input type="text" id="username" placeholder="Username" />
-    <input type="password" id="password" placeholder="Password" />
-    <button id="login-btn">Login</button>
+  <div id="login">
+    <h2>Login</h2>
+    <input id="username" placeholder="Username" />
+    <input id="password" type="password" placeholder="Password" />
+    <button id="loginBtn">Login</button>
+    <p id="loginError" style="color:red;"></p>
   </div>
 
-  <div id="chat-container" style="display: none;">
-    <div id="chat-header">
-      <span>Online: <span id="online-users"></span></span>
-      <button id="logout-btn">Logout</button>
-    </div>
-    <div id="messages"></div>
-    <div id="input-container">
-      <input type="text" id="message-input" placeholder="Type a message..." />
-      <button id="send-btn">Send</button>
-    </div>
+  <div id="chat-container" style="display:none;">
+    <h2>Chat</h2>
+    <p>Status: <span id="status">Offline</span></p>
+    <div id="messages" style="height:300px; overflow-y:auto; border:1px solid #ccc; padding:10px;"></div>
+    <input id="message" placeholder="Tulis pesan..." />
+    <input type="file" id="file-input" />
+    <button id="sendBtn">Kirim</button>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
