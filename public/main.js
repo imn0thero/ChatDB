@@ -1,58 +1,62 @@
 const socket = io();
+
 let currentUser = null;
-
-const loginContainer = document.getElementById('login-container');
-const chatContainer = document.getElementById('chat-container');
-const loginBtn = document.getElementById('login-btn');
-const logoutBtn = document.getElementById('logout-btn');
-const usernameInput = document.getElementById('username');
-const passwordInput = document.getElementById('password');
-const messageInput = document.getElementById('message-input');
-const sendBtn = document.getElementById('send-btn');
+const loginDiv = document.getElementById('login');
+const chatDiv = document.getElementById('chat-container');
+const loginBtn = document.getElementById('loginBtn');
+const username = document.getElementById('username');
+const password = document.getElementById('password');
+const loginError = document.getElementById('loginError');
+const status = document.getElementById('status');
+const message = document.getElementById('message');
+const fileInput = document.getElementById('file-input');
+const sendBtn = document.getElementById('sendBtn');
 const messagesDiv = document.getElementById('messages');
-const onlineUsersSpan = document.getElementById('online-users');
 
-// Login klik
 loginBtn.onclick = () => {
-  const username = usernameInput.value.trim();
-  const password = passwordInput.value;
-
-  fetch('/login', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ username, password })
-  })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        currentUser = username;
-        loginContainer.style.display = 'none';
-        chatContainer.style.display = 'block';
-        socket.emit('userOnline', username);
-      } else {
-        alert('Login gagal!');
-      }
-    });
+  socket.emit('login', {
+    username: username.value.trim(),
+    password: password.value
+  });
 };
 
-// Logout
-logoutBtn.onclick = () => {
-  socket.emit('userOffline', currentUser);
-  currentUser = null;
-  chatContainer.style.display = 'none';
-  loginContainer.style.display = 'block';
-};
+socket.on('loginResult', result => {
+  if (result.success) {
+    currentUser = result.user;
+    loginDiv.style.display = 'none';
+    chatDiv.style.display = 'block';
+  } else {
+    loginError.textContent = result.message;
+  }
+});
 
-// Kirim pesan
 sendBtn.onclick = () => {
-  const msg = messageInput.value.trim();
-  if (msg && currentUser) {
-    socket.emit('chatMessage', { user: currentUser, text: msg });
-    messageInput.value = '';
+  const text = message.value.trim();
+  const file = fileInput.files[0];
+
+  if (text) {
+    socket.emit('chatMessage', {
+      user: currentUser,
+      text
+    });
+    message.value = '';
+  }
+
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function () {
+      socket.emit('mediaMessage', {
+        user: currentUser,
+        name: file.name,
+        type: file.type,
+        data: reader.result
+      });
+    };
+    reader.readAsDataURL(file);
+    fileInput.value = '';
   }
 };
 
-// Tampilkan pesan
 socket.on('chatMessage', msg => {
   const div = document.createElement('div');
   div.textContent = `${msg.user}: ${msg.text}`;
@@ -60,18 +64,35 @@ socket.on('chatMessage', msg => {
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 });
 
-// Tampilkan semua pesan lama
-socket.on('loadMessages', msgs => {
-  messagesDiv.innerHTML = '';
-  msgs.forEach(msg => {
-    const div = document.createElement('div');
-    div.textContent = `${msg.user}: ${msg.text}`;
-    messagesDiv.appendChild(div);
-  });
+socket.on('mediaMessage', file => {
+  const div = document.createElement('div');
+  div.innerHTML = `<strong>${file.user} mengirim:</strong><br/>`;
+
+  if (file.type.startsWith('image/')) {
+    div.innerHTML += `<img src="${file.data}" />`;
+  } else if (file.type.startsWith('video/')) {
+    div.innerHTML += `<video controls><source src="${file.data}" type="${file.type}"></video>`;
+  } else if (file.type.startsWith('audio/')) {
+    div.innerHTML += `<audio controls><source src="${file.data}" type="${file.type}"></audio>`;
+  } else {
+    div.innerHTML += `<a href="${file.data}" download="${file.name}">${file.name}</a>`;
+  }
+
+  messagesDiv.appendChild(div);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 });
 
-// Update daftar online
-socket.on('updateOnlineUsers', users => {
-  onlineUsersSpan.textContent = users.join(', ');
+socket.on('loadMessages', msgs => {
+  messagesDiv.innerHTML = '';
+  msgs.forEach(msg => {
+    if (msg.text) {
+      socket.emit('chatMessage', msg);
+    } else if (msg.data) {
+      socket.emit('mediaMessage', msg);
+    }
+  });
+});
+
+socket.on('userStatus', isOnline => {
+  status.textContent = isOnline ? 'Online' : 'Offline';
 });
