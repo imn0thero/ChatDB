@@ -1,20 +1,16 @@
 {
-  "name": "zzz-chat-app",
+  "name": "zzz-chat",
   "version": "1.0.0",
-  "description": "Simple 2-user chat app with login, online status, and message history",
+  "description": "Simple chat app with login using Express and Socket.io",
   "main": "server.js",
   "scripts": {
     "start": "node app.js"
   },
+  "author": "Your Name",
+  "license": "MIT",
   "dependencies": {
-    "body-parser": "^1.20.2",
-    "express": "^4.19.2",
-    "socket.io": "^4.7.2"
-  },
-  "engines": {
-    "node": ">=14.0.0"
-  },
-  "keywords": [],
-  "author": "zzz",
-  "license": "MIT"
+    "express": "^4.18.2",
+    "socket.io": "^4.7.1",
+    "uuid": "^9.0.0"
+  }
 }
