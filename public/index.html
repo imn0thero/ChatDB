@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Zzz Chat</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
@@ -40,8 +40,12 @@
     const fileInput = document.getElementById('file-input');
 
     document.getElementById('loginBtn').onclick = () => {
-      const username = document.getElementById('username').value;
+      const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
+      if (!username || !password) {
+        document.getElementById('loginError').innerText = 'Username dan password wajib diisi.';
+        return;
+      }
       socket.emit('login', { username, password });
     };
 
@@ -51,6 +55,7 @@
         loginDiv.style.display = 'none';
         chatDiv.style.display = 'block';
         statusSpan.innerText = 'Online';
+        document.getElementById('loginError').innerText = '';
       } else {
         document.getElementById('loginError').innerText = res.message;
       }
@@ -79,8 +84,9 @@
     });
 
     document.getElementById('sendBtn').onclick = () => {
-      const text = messageInput.value;
+      const text = messageInput.value.trim();
       const file = fileInput.files[0];
+
       if (file) {
         const reader = new FileReader();
         reader.onload = () => {
@@ -92,7 +98,7 @@
         };
         reader.readAsDataURL(file);
         fileInput.value = '';
-      } else if (text.trim()) {
+      } else if (text) {
         socket.emit('chatMessage', { text });
       }
       messageInput.value = '';
@@ -132,8 +138,8 @@
 
     window.editMessage = function(id) {
       const newText = prompt('Edit pesan:');
-      if (newText) {
-        socket.emit('editMessage', { id, text: newText });
+      if (newText !== null && newText.trim() !== '') {
+        socket.emit('editMessage', { id, text: newText.trim() });
       }
     };
 
