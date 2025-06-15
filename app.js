@@ -4,106 +4,142 @@ const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-
-app.use(express.static(path.join(__dirname, 'public')));
+const db = require('./db');
 
 const PORT = process.env.PORT || 3000;
+const onlineUsers = {};
 
-// Auth user sederhana
-const users = {
-  user1: 'pass1',
-  user2: 'pass2'
-};
+// Middleware
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 
-let onlineUsers = {};
-let messages = [];
+// Fungsi bantu
+function signupUser(username, password, callback) {
+  const query = 'INSERT INTO users (username, password) VALUES (?, ?)';
+  db.query(query, [username, password], (err, result) => {
+    if (err) return callback(err);
+    callback(null);
+  });
+}
 
-// Hapus otomatis pesan > 24 jam setiap menit
+function loginUser(username, password, callback) {
+  const query = 'SELECT * FROM users WHERE username = ? AND password = ?';
+  db.query(query, [username, password], (err, results) => {
+    if (err) return callback(err);
+    callback(null, results.length > 0);
+  });
+}
+
+function loadMessages(callback) {
+  const query = 'SELECT * FROM messages ORDER BY time ASC';
+  db.query(query, (err, results) => {
+    if (err) return callback(err, []);
+    callback(null, results);
+  });
+}
+
+function saveMessage(messageData, callback) {
+  const { id, user, text, time } = messageData;
+  const query = 'INSERT INTO messages (id, user, text, time) VALUES (?, ?, ?, ?)';
+  db.query(query, [id, user, text, time], callback);
+}
+
+// Hapus pesan lama setiap menit
 setInterval(() => {
-  const now = Date.now();
-  messages = messages.filter(m => now - m.time < 24 * 60 * 60 * 1000); // 24 jam
+  const timeLimit = Date.now() - 24 * 60 * 60 * 1000;
+  db.query('DELETE FROM messages WHERE time < ?', [timeLimit]);
 }, 60 * 1000);
 
+// Socket.IO
 io.on('connection', socket => {
   let currentUser = null;
 
-  // Proses login
+  socket.on('signup', data => {
+    if (!data.username || !data.password) {
+      socket.emit('signupResult', { success: false, message: 'Username dan password wajib diisi' });
+      return;
+    }
+
+    // Cek apakah username sudah digunakan
+    db.query('SELECT * FROM users WHERE username = ?', [data.username], (err, results) => {
+      if (err) {
+        socket.emit('signupResult', { success: false, message: 'Terjadi kesalahan server' });
+        return;
+      }
+
+      if (results.length > 0) {
+        socket.emit('signupResult', { success: false, message: 'Username sudah dipakai' });
+      } else {
+        signupUser(data.username, data.password, err => {
+          if (err) {
+            socket.emit('signupResult', { success: false, message: 'Gagal mendaftar' });
+          } else {
+            socket.emit('signupResult', { success: true });
+          }
+        });
+      }
+    });
+  });
+
   socket.on('login', data => {
-    if (users[data.username] && users[data.username] === data.password) {
-      currentUser = data.username;
-      onlineUsers[currentUser] = true;
-
-      socket.emit('loginResult', { success: true, user: currentUser });
-      io.emit('userList', Object.keys(onlineUsers));
-      socket.emit('loadMessages', messages);
-    } else {
-      socket.emit('loginResult', { success: false, message: 'Login gagal' });
+    if (!data.username || !data.password) {
+      socket.emit('loginResult', { success: false, message: 'Username dan password wajib diisi' });
+      return;
     }
+
+    loginUser(data.username, data.password, (err, success) => {
+      if (err || !success) {
+        socket.emit('loginResult', { success: false, message: 'Username atau password salah' });
+      } else {
+        currentUser = data.username;
+        onlineUsers[currentUser] = true;
+
+        loadMessages((err, msgs) => {
+          if (err) {
+            socket.emit('loginResult', { success: false, message: 'Gagal memuat pesan' });
+          } else {
+            socket.emit('loginResult', { success: true, user: currentUser, messages: msgs });
+            io.emit('userList', Object.keys(onlineUsers));
+          }
+        });
+      }
+    });
   });
 
-  // Kirim pesan teks
-  socket.on('chatMessage', msg => {
-    if (!currentUser) return; // pastikan sudah login
-    const message = {
+  socket.on('message', data => {
+    if (!currentUser || !data.text || data.text.trim() === '') return;
+
+    const messageData = {
       id: uuidv4(),
       user: currentUser,
-      text: msg.text,
+      text: data.text.trim(),
       time: Date.now()
     };
-    messages.push(message);
-    io.emit('chatMessage', message);
+
+    saveMessage(messageData, err => {
+      if (!err) {
+        io.emit('message', messageData);
+      }
+    });
   });
 
-  // Edit pesan
-  socket.on('editMessage', data => {
-    if (!currentUser) return;
-    const msg = messages.find(m => m.id === data.id && m.user === currentUser);
-    if (msg) {
-      msg.text = data.text;
-      io.emit('messageEdited', { id: msg.id, text: msg.text });
-    }
-  });
-
-  // Hapus pesan
-  socket.on('deleteMessage', id => {
-    if (!currentUser) return;
-    const index = messages.findIndex(m => m.id === id && m.user === currentUser);
-    if (index !== -1) {
-      messages.splice(index, 1);
-      io.emit('messageDeleted', id);
-    }
-  });
-
-  // Kirim media
-  socket.on('mediaMessage', file => {
-    if (!currentUser) return;
-    const media = {
-      id: uuidv4(),
-      user: currentUser,
-      type: file.type,
-      data: file.data,
-      name: file.name,
-      time: Date.now()
-    };
-    messages.push(media);
-    io.emit('mediaMessage', media);
-  });
-
-  // Logout / Disconnect
   socket.on('logout', () => {
     if (currentUser) {
       delete onlineUsers[currentUser];
       io.emit('userList', Object.keys(onlineUsers));
+      currentUser = null;
     }
-    socket.disconnect();
   });
 
   socket.on('disconnect', () => {
     if (currentUser) {
       delete onlineUsers[currentUser];
       io.emit('userList', Object.keys(onlineUsers));
+      currentUser = null;
     }
   });
 });
 
-http.listen(PORT, () => console.log('Server jalan di port', PORT));
+http.listen(PORT, () => {
+  console.log(`🚀 Server berjalan di port ${PORT}`);
+});
