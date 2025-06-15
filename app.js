@@ -5,6 +5,9 @@ const io = require('socket.io')(http);
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const db = require('./db');
+const bcrypt = require('bcrypt');
+const SALT_ROUNDS = 10;
+
 
 const PORT = process.env.PORT || 3000;
 const onlineUsers = {};
