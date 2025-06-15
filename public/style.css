@@ -1,100 +1,216 @@
-/* style.css */
-
+/* Font dan warna dasar */
 body {
-  font-family: Arial, sans-serif;
-  background: #f9f9f9;
   margin: 0;
+  padding: 0;
+  font-family: 'Nova Round', cursive;
+  background-color: #fff;
+  color: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.container {
+  border: 2px solid #000;
+  border-radius: 15px;
   padding: 20px;
-  color: #333;
-}
-
-#login, #chat-container {
-  max-width: 500px;
-  margin: 30px auto;
-  background: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-}
-
-h2 {
-  margin-top: 0;
-  text-align: center;
-  color: #2c3e50;
-}
-
-input[type="text"], input[type="password"], input[type="file"], input#message {
+  max-width: 400px;
   width: 100%;
-  padding: 8px 10px;
-  margin: 10px 0 15px 0;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  box-sizing: border-box;
-  font-size: 1rem;
+  background-color: #fff;
+  position: relative;
+  box-shadow: 0 0 10px #000;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
-button {
-  background-color: #3498db;
-  border: none;
-  color: white;
-  padding: 10px 15px;
-  text-align: center;
-  font-size: 1rem;
-  margin: 5px 2px;
-  border-radius: 5px;
+/* Tombol pojok kanan atas */
+.top-right {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.toggle-btn,
+.logout-btn {
+  background-color: transparent;
+  color: #000;
+  border: 2px solid #000;
+  padding: 6px 12px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  font-family: 'Nova Round', cursive;
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
 }
 
-button:hover {
-  background-color: #2980b9;
+.toggle-btn:hover,
+.logout-btn:hover {
+  background-color: #000;
+  color: #fff;
 }
 
-#messages {
-  background: #ecf0f1;
-  border-radius: 5px;
-  padding: 10px;
+/* Judul dan pengguna online */
+h2, h3 {
+  text-align: center;
+  margin-top: 40px;
+}
+
+#onlineUsers ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: center;
+}
+
+#onlineUsers li {
+  margin: 5px 0;
+}
+
+/* Chatbox */
+#chatbox {
   height: 300px;
   overflow-y: auto;
-  font-size: 0.9rem;
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  margin: 10px 0;
+  border: 2px solid #000;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
-#messages div {
-  padding: 6px 8px;
-  margin-bottom: 8px;
-  background: #fff;
-  border-radius: 5px;
-  position: relative;
+.message {
+  padding: 8px;
+  margin: 5px 0;
+  border-radius: 10px;
+  word-wrap: break-word;
+  max-width: 80%;
 }
 
-#messages div b {
-  color: #34495e;
+.message-left {
+  border: 2px solid #000;
+  border-radius: 20px;
+  background-color: #fff;
+  color: #000;
+  text-align: left;
 }
 
-#messages div button {
-  font-size: 0.75rem;
-  padding: 2px 6px;
-  margin-left: 8px;
-  vertical-align: middle;
-  background-color: #e74c3c;
+.message-right {
+  border: 2px solid #000;
+  border-radius: 20px;
+  background-color: #fff;
+  color: #000;
+  text-align: right;
+  margin-left: auto;
 }
 
-#messages div button:hover {
-  background-color: #c0392b;
+/* Input pesan */
+#inputArea {
+  display: flex;
+  gap: 10px;
 }
 
-#messages img, #messages video {
-  margin-top: 5px;
-  border-radius: 5px;
-  max-height: 150px;
+#msgInput {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #000;
+  background-color: #fff;
+  color: #000;
+  font-family: 'Nova Round', cursive;
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
 }
 
-#status {
+#msgInput::placeholder {
+  color: #000;
+}
+
+#inputArea button {
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 2px solid #000;
+  background-color: transparent;
+  color: #000;
+  cursor: pointer;
+  font-family: 'Nova Round', cursive;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+#inputArea button:hover {
+  background-color: #000;
+  color: #fff;
+}
+
+/* Tanggal & waktu di dalam container (bagian bawah tengah) */
+.datetime-inside {
+  text-align: center;
   font-weight: bold;
-  color: green;
+  font-family: 'Nova Round', cursive;
+  font-size: 14px;
+  margin-top: 10px;
+  padding-bottom: 5px;
+  color: #000;
+  transition: color 0.3s;
 }
 
-#onlineUsers {
-  font-style: italic;
-  color: #7f8c8d;
+/* ======================= */
+/* MODE GELAP STARTS HERE */
+/* ======================= */
+.dark-mode {
+  background-color: #000;
+  color: #fff;
+}
+
+.dark-mode .container {
+  background-color: #000;
+  border-color: #fff;
+  box-shadow: 0 0 10px #fff;
+}
+
+.dark-mode #chatbox {
+  background-color: #000;
+  border-color: #fff;
+}
+
+.dark-mode .message-left {
+  border: 2px solid #fff;
+  border-radius: 20px;
+  background-color: #000;
+  color: #fff;
+}
+
+.dark-mode .message-right {
+  border: 2px solid #fff;
+  border-radius: 20px;
+  background-color: #000;
+  color: #fff;
+}
+
+.dark-mode #msgInput {
+  background-color: #111;
+  color: #fff;
+  border-color: #fff;
+}
+
+.dark-mode #msgInput::placeholder {
+  color: #aaa;
+}
+
+.dark-mode #inputArea button,
+.dark-mode .logout-btn,
+.dark-mode .toggle-btn {
+  border-color: #fff;
+  color: #fff;
+}
+
+.dark-mode #inputArea button:hover,
+.dark-mode .logout-btn:hover,
+.dark-mode .toggle-btn:hover {
+  background-color: #fff;
+  color: #000;
+}
+
+.dark-mode .datetime-inside {
+  color: #fff;
 }
