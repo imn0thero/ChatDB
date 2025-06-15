@@ -1,16 +1,18 @@
 {
-  "name": "zzz-chat",
+  "name": "hai-chat",
   "version": "1.0.0",
-  "description": "Simple chat app with login using Express and Socket.io",
+  "description": "A simple real-time chat app using Node.js, Socket.IO, and MySQL on DOM Cloud",
   "main": "server.js",
   "scripts": {
-    "start": "node app.js"
+    "start": "node server.js"
   },
-  "author": "Your Name",
+  "author": "Nama Kamu",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.7.1",
-    "uuid": "^9.0.0"
+    "bcrypt": "^5.1.1",
+    "express": "^4.19.2",
+    "mysql2": "^3.9.1",
+    "socket.io": "^4.7.5",
+    "uuid": "^9.0.1"
   }
 }
