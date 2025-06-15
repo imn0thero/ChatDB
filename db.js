@@ -1,10 +1,10 @@
 const mysql = require('mysql2');
 
 const db = mysql.createConnection({
-  host: 'nue.domcloud.co',       // atau sesuai info dari Domcloud
-  user: 'sayangg-kisahkita',       // ganti
-  password: 's+Vx15)l72L5Of(CxQ',   // ganti
-  database: 'sayangg_kisahkita_sayangg_kisahkita_' // ganti
+  host: 'osk.domcloud.co',       // atau sesuai info dari Domcloud
+  user: 'iloveu-e2e',       // ganti
+  password: '57w3mWH+bA)1m+jG3W',   // ganti
+  database: 'iloveu_e2e_1' // ganti
 });
 
 db.connect(err => {
