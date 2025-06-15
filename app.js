@@ -3,114 +3,122 @@ const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const db = require('./db');
+const mysql = require('mysql');
 const bcrypt = require('bcrypt');
-const SALT_ROUNDS = 10;
-
+const { v4: uuidv4 } = require('uuid');
 
 const PORT = process.env.PORT || 3000;
-const onlineUsers = {};
+const SALT_ROUNDS = 10;
+
+// Koneksi database MySQL
+const db = mysql.createConnection({
+  host: 'localhost', // ubah sesuai config DomCloud
+  user: 'username',  // ganti sesuai database
+  password: 'password',
+  database: 'dbname'
+});
+
+db.connect(err => {
+  if (err) {
+    console.error('Gagal konek ke database:', err);
+    process.exit(1);
+  }
+  console.log('Terhubung ke database');
+});
 
 // Middleware
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// Fungsi bantu
-function signupUser(username, password, callback) {
-  const query = 'INSERT INTO users (username, password) VALUES (?, ?)';
-  db.query(query, [username, password], (err, result) => {
-    if (err) return callback(err);
-    callback(null);
-  });
-}
+let onlineUsers = {};
 
-function loginUser(username, password, callback) {
-  const query = 'SELECT * FROM users WHERE username = ? AND password = ?';
-  db.query(query, [username, password], (err, results) => {
-    if (err) return callback(err);
-    callback(null, results.length > 0);
-  });
-}
-
-function loadMessages(callback) {
-  const query = 'SELECT * FROM messages ORDER BY time ASC';
-  db.query(query, (err, results) => {
-    if (err) return callback(err, []);
-    callback(null, results);
-  });
-}
-
-function saveMessage(messageData, callback) {
-  const { id, user, text, time } = messageData;
-  const query = 'INSERT INTO messages (id, user, text, time) VALUES (?, ?, ?, ?)';
-  db.query(query, [id, user, text, time], callback);
-}
-
-// Hapus pesan lama setiap menit
+// Hapus pesan lebih dari 24 jam setiap menit
 setInterval(() => {
-  const timeLimit = Date.now() - 24 * 60 * 60 * 1000;
-  db.query('DELETE FROM messages WHERE time < ?', [timeLimit]);
+  const satuHariLalu = Date.now() - 24 * 60 * 60 * 1000;
+  db.query('DELETE FROM messages WHERE time < ?', [satuHariLalu]);
 }, 60 * 1000);
 
 // Socket.IO
 io.on('connection', socket => {
   let currentUser = null;
 
+  // SIGNUP
   socket.on('signup', data => {
     if (!data.username || !data.password) {
       socket.emit('signupResult', { success: false, message: 'Username dan password wajib diisi' });
       return;
     }
 
-    // Cek apakah username sudah digunakan
-    db.query('SELECT * FROM users WHERE username = ?', [data.username], (err, results) => {
+    bcrypt.hash(data.password, SALT_ROUNDS, (err, hash) => {
       if (err) {
-        socket.emit('signupResult', { success: false, message: 'Terjadi kesalahan server' });
+        console.error(err);
+        socket.emit('signupResult', { success: false, message: 'Kesalahan server' });
         return;
       }
 
-      if (results.length > 0) {
-        socket.emit('signupResult', { success: false, message: 'Username sudah dipakai' });
-      } else {
-        signupUser(data.username, data.password, err => {
-          if (err) {
-            socket.emit('signupResult', { success: false, message: 'Gagal mendaftar' });
+      db.query('INSERT INTO users (username, password) VALUES (?, ?)', [data.username, hash], (err) => {
+        if (err) {
+          if (err.code === 'ER_DUP_ENTRY') {
+            socket.emit('signupResult', { success: false, message: 'Username sudah dipakai' });
           } else {
-            socket.emit('signupResult', { success: true });
+            console.error(err);
+            socket.emit('signupResult', { success: false, message: 'Gagal menyimpan user' });
           }
-        });
-      }
+          return;
+        }
+
+        socket.emit('signupResult', { success: true });
+      });
     });
   });
 
+  // LOGIN
   socket.on('login', data => {
     if (!data.username || !data.password) {
       socket.emit('loginResult', { success: false, message: 'Username dan password wajib diisi' });
       return;
     }
 
-    loginUser(data.username, data.password, (err, success) => {
-      if (err || !success) {
-        socket.emit('loginResult', { success: false, message: 'Username atau password salah' });
-      } else {
+    db.query('SELECT * FROM users WHERE username = ?', [data.username], (err, results) => {
+      if (err) {
+        console.error(err);
+        socket.emit('loginResult', { success: false, message: 'Kesalahan server' });
+        return;
+      }
+
+      if (results.length === 0) {
+        socket.emit('loginResult', { success: false, message: 'Username tidak ditemukan' });
+        return;
+      }
+
+      const user = results[0];
+      bcrypt.compare(data.password, user.password, (err, result) => {
+        if (err || !result) {
+          socket.emit('loginResult', { success: false, message: 'Password salah' });
+          return;
+        }
+
         currentUser = data.username;
         onlineUsers[currentUser] = true;
 
-        loadMessages((err, msgs) => {
+        // Ambil semua pesan dari database
+        db.query('SELECT * FROM messages ORDER BY time ASC', (err, msgResults) => {
           if (err) {
+            console.error(err);
             socket.emit('loginResult', { success: false, message: 'Gagal memuat pesan' });
-          } else {
-            socket.emit('loginResult', { success: true, user: currentUser, messages: msgs });
-            io.emit('userList', Object.keys(onlineUsers));
+            return;
           }
+
+          socket.emit('loginResult', { success: true, user: currentUser, messages: msgResults });
+          io.emit('userList', Object.keys(onlineUsers));
         });
-      }
+      });
     });
   });
 
+  // KIRIM PESAN
   socket.on('message', data => {
-    if (!currentUser || !data.text || data.text.trim() === '') return;
+    if (!currentUser || !data.text || data.text.trim() === "") return;
 
     const messageData = {
       id: uuidv4(),
@@ -119,13 +127,18 @@ io.on('connection', socket => {
       time: Date.now()
     };
 
-    saveMessage(messageData, err => {
-      if (!err) {
+    db.query('INSERT INTO messages (id, user, text, time) VALUES (?, ?, ?, ?)', 
+      [messageData.id, messageData.user, messageData.text, messageData.time], (err) => {
+        if (err) {
+          console.error('Gagal menyimpan pesan:', err);
+          return;
+        }
+
         io.emit('message', messageData);
-      }
     });
   });
 
+  // LOGOUT
   socket.on('logout', () => {
     if (currentUser) {
       delete onlineUsers[currentUser];
@@ -134,6 +147,7 @@ io.on('connection', socket => {
     }
   });
 
+  // DISCONNECT
   socket.on('disconnect', () => {
     if (currentUser) {
       delete onlineUsers[currentUser];
@@ -144,5 +158,5 @@ io.on('connection', socket => {
 });
 
 http.listen(PORT, () => {
-  console.log(`🚀 Server berjalan di port ${PORT}`);
+  console.log(`Server berjalan di port ${PORT}`);
 });
