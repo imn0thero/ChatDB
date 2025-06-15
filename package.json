@@ -4,7 +4,7 @@
   "description": "A simple real-time chat app using Node.js, Socket.IO, and MySQL on DOM Cloud",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node app.js"
   },
   "author": "Nama Kamu",
   "license": "MIT",
