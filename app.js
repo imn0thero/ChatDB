@@ -1,274 +1,141 @@
 const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const path = require('path');
 const fs = require('fs');
-const bcrypt = require('bcrypt');
-const session = require('express-session');
+const path = require('path');
+const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server);
+const PORT = 3000;
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
-app.use(session({
-    secret: 'your-secret-key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: { secure: false }
-}));
+app.use(bodyParser.json());
+app.use(cookieParser());
 
-// Data files
-const USERS_FILE = 'users.json';
-const MESSAGES_FILE = 'messages.json';
-
-// Initialize data files
-function initializeDataFiles() {
-    if (!fs.existsSync(USERS_FILE)) {
-        fs.writeFileSync(USERS_FILE, JSON.stringify([]));
-    }
-    if (!fs.existsSync(MESSAGES_FILE)) {
-        fs.writeFileSync(MESSAGES_FILE, JSON.stringify([]));
-    }
+// Fungsi baca/tulis JSON
+function readJSON(file) {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-// Helper functions
-function readUsers() {
-    try {
-        return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-    } catch (error) {
-        return [];
-    }
+function writeJSON(file, data) {
+    fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
-function writeUsers(users) {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+// Middleware autentikasi
+function isAuthenticated(req, res, next) {
+    const userId = req.cookies.userId;
+    if (!userId) return res.redirect('/login.html');
+    const users = readJSON('users.json');
+    const user = users.find(u => u.id === userId);
+    if (!user) return res.redirect('/login.html');
+    req.user = user;
+    next();
 }
 
-function readMessages() {
-    try {
-        return JSON.parse(fs.readFileSync(MESSAGES_FILE, 'utf8'));
-    } catch (error) {
-        return [];
-    }
-}
-
-function writeMessages(messages) {
-    fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messages, null, 2));
-}
-
-// Auto delete messages after 24 hours
-function cleanupOldMessages() {
-    const messages = readMessages();
-    const now = Date.now();
-    const filteredMessages = messages.filter(msg => {
-        return (now - msg.timestamp) < (24 * 60 * 60 * 1000); // 24 hours
-    });
-    writeMessages(filteredMessages);
-}
-
-// Clean up old messages every hour
-setInterval(cleanupOldMessages, 60 * 60 * 1000);
-
-// Initialize
-initializeDataFiles();
-
-// Routes
-app.get('/', (req, res) => {
-    if (req.session.userId) {
-        res.sendFile(path.join(__dirname, 'public', 'chat.html'));
-    } else {
-        res.redirect('/login');
-    }
-});
-
-app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-
-app.get('/signup', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'signup.html'));
-});
-
-// Authentication endpoints
-app.post('/signup', async (req, res) => {
+// API Login
+app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    const users = readUsers();
-    
-    if (users.find(u => u.username === username)) {
-        return res.status(400).json({ error: 'Username already exists' });
+    const users = readJSON('users.json');
+    const user = users.find(u => u.username === username && u.password === password);
+
+    if (!user) return res.status(400).send({ error: 'Invalid credentials' });
+
+    res.cookie('userId', user.id, { maxAge: 900000 });
+    res.send({ success: true });
+});
+
+// API Signup
+app.post('/api/signup', (req, res) => {
+    const { username, password } = req.body;
+    let users = readJSON('users.json');
+
+    if (users.some(u => u.username === username)) {
+        return res.status(400).send({ error: 'Username already exists' });
     }
-    
-    if (users.length >= 2) {
-        return res.status(400).json({ error: 'Maximum 2 users allowed' });
-    }
-    
-    const hashedPassword = await bcrypt.hash(password, 10);
+
     const newUser = {
-        id: Date.now().toString(),
+        id: uuidv4(),
         username,
-        password: hashedPassword,
-        isOnline: false,
-        lastSeen: null
+        password,
+        online: false,
+        lastOnline: new Date().toISOString()
     };
-    
+
     users.push(newUser);
-    writeUsers(users);
-    
-    res.json({ success: true });
+    writeJSON('users.json', users);
+
+    res.cookie('userId', newUser.id, { maxAge: 900000 });
+    res.send({ success: true });
 });
 
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    const users = readUsers();
-    
-    const user = users.find(u => u.username === username);
-    if (!user || !await bcrypt.compare(password, user.password)) {
-        return res.status(400).json({ error: 'Invalid credentials' });
-    }
-    
-    req.session.userId = user.id;
-    req.session.username = user.username;
-    
-    // Update user online status
-    user.isOnline = true;
-    user.lastSeen = Date.now();
-    writeUsers(users);
-    
-    res.json({ success: true });
+// API Logout
+app.get('/api/logout', (req, res) => {
+    const userId = req.cookies.userId;
+    let users = readJSON('users.json');
+    users = users.map(u =>
+        u.id === userId ? { ...u, online: false, lastOnline: new Date().toISOString() } : u
+    );
+    writeJSON('users.json', users);
+    res.clearCookie('userId');
+    res.redirect('/login.html');
 });
 
-app.post('/logout', (req, res) => {
-    if (req.session.userId) {
-        const users = readUsers();
-        const user = users.find(u => u.id === req.session.userId);
-        if (user) {
-            user.isOnline = false;
-            user.lastSeen = Date.now();
-            writeUsers(users);
-        }
-    }
-    
-    req.session.destroy();
-    res.json({ success: true });
+// API Get User Info
+app.get('/api/user', isAuthenticated, (req, res) => {
+    const users = readJSON('users.json').filter(u => u.id !== req.user.id);
+    res.send(users[0]);
 });
 
-// Chat endpoints
-app.get('/api/messages', (req, res) => {
-    if (!req.session.userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-    }
-    
-    cleanupOldMessages();
-    const messages = readMessages();
-    res.json(messages);
+// API Update Online Status
+app.post('/api/online', isAuthenticated, (req, res) => {
+    const userId = req.user.id;
+    let users = readJSON('users.json');
+    users = users.map(u =>
+        u.id === userId ? { ...u, online: true } : u
+    );
+    writeJSON('users.json', users);
+    res.send({ success: true });
 });
 
-app.delete('/api/messages', (req, res) => {
-    if (!req.session.userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-    }
-    
-    writeMessages([]);
-    io.emit('messagesCleared');
-    res.json({ success: true });
+// API Get Messages
+app.get('/api/messages', isAuthenticated, (req, res) => {
+    const messages = readJSON('messages.json');
+    res.send(messages);
 });
 
-app.get('/api/users', (req, res) => {
-    if (!req.session.userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-    }
-    
-    const users = readUsers();
-    const safeUsers = users.map(u => ({
-        id: u.id,
-        username: u.username,
-        isOnline: u.isOnline,
-        lastSeen: u.lastSeen
-    }));
-    
-    res.json(safeUsers);
+// API Send Message
+app.post('/api/send', isAuthenticated, (req, res) => {
+    const { text } = req.body;
+    const message = {
+        id: uuidv4(),
+        sender: req.user.id,
+        text,
+        timestamp: new Date().toISOString()
+    };
+    let messages = readJSON('messages.json');
+    messages.push(message);
+    writeJSON('messages.json', messages);
+    res.send({ success: true });
 });
 
-app.get('/api/current-user', (req, res) => {
-    if (!req.session.userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-    }
-    
-    res.json({
-        id: req.session.userId,
-        username: req.session.username
+// API Delete All Messages
+app.post('/api/delete-all', isAuthenticated, (req, res) => {
+    writeJSON('messages.json', []);
+    res.send({ success: true });
+});
+
+// Jalankan server
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+});
+
+// Bersihkan pesan lebih dari 24 jam
+setInterval(() => {
+    let messages = readJSON('messages.json');
+    const now = new Date();
+    messages = messages.filter(m => {
+        const msgTime = new Date(m.timestamp);
+        return (now - msgTime) < 24 * 60 * 60 * 1000; // 24 jam
     });
-});
-
-// Socket.io connection handling
-io.on('connection', (socket) => {
-    console.log('User connected');
-    
-    socket.on('join', (userData) => {
-        socket.userId = userData.userId;
-        socket.username = userData.username;
-        
-        // Update user online status
-        const users = readUsers();
-        const user = users.find(u => u.id === userData.userId);
-        if (user) {
-            user.isOnline = true;
-            user.lastSeen = Date.now();
-            writeUsers(users);
-        }
-        
-        // Broadcast user status
-        io.emit('userStatusUpdate', {
-            userId: userData.userId,
-            isOnline: true,
-            lastSeen: Date.now()
-        });
-    });
-    
-    socket.on('sendMessage', (messageData) => {
-        const messages = readMessages();
-        const newMessage = {
-            id: Date.now().toString(),
-            senderId: socket.userId,
-            senderName: socket.username,
-            message: messageData.message,
-            timestamp: Date.now()
-        };
-        
-        messages.push(newMessage);
-        writeMessages(messages);
-        
-        io.emit('newMessage', newMessage);
-    });
-    
-    socket.on('disconnect', () => {
-        console.log('User disconnected');
-        
-        if (socket.userId) {
-            // Update user offline status
-            const users = readUsers();
-            const user = users.find(u => u.id === socket.userId);
-            if (user) {
-                user.isOnline = false;
-                user.lastSeen = Date.now();
-                writeUsers(users);
-            }
-            
-            // Broadcast user status
-            io.emit('userStatusUpdate', {
-                userId: socket.userId,
-                isOnline: false,
-                lastSeen: Date.now()
-            });
-        }
-    });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+    writeJSON('messages.json', messages);
+}, 60 * 60 * 1000); // Setiap 1 jam cek
