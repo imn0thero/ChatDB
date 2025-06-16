@@ -308,11 +308,17 @@
             try {
                 // Get current user from server
                 const response = await fetch('/api/current-user');
+                
+                // Check if response is ok
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
                 
-                if (data.error) {
-                    window.location.href = '/login';
-                    return;
+                // Check if user data exists and is valid
+                if (!data || !data.user || !data.user.username) {
+                    throw new Error('Invalid user data received');
                 }
                 
                 currentUser = data.user;
@@ -334,59 +340,112 @@
                 
             } catch (error) {
                 console.error('Initialization error:', error);
-                // Fallback: redirect to login if can't get user data
-                window.location.href = '/login';
+                
+                // Check if it's a network error or server is not responding
+                if (error.message.includes('fetch') || error.message.includes('network')) {
+                    showNotification('Tidak dapat terhubung ke server', 'error');
+                    // Don't redirect, just show error and use fallback
+                    initializeFallback();
+                } else {
+                    // Only redirect to login if it's an authentication error
+                    window.location.href = '/login';
+                }
             }
         }
         
+        // Fallback initialization when server is not available
+        function initializeFallback() {
+            // Create a temporary user for demo purposes
+            currentUser = {
+                id: 'temp_' + Math.random().toString(36).substr(2, 9),
+                username: 'TempUser' + Math.floor(Math.random() * 1000),
+                isOnline: true,
+                isTemp: true
+            };
+            
+            document.getElementById('myUsername').textContent = currentUser.username + ' (Offline Mode)';
+            updateUserStatus(false);
+            
+            // Setup basic event listeners
+            setupEventListeners();
+            
+            // Show offline mode notification
+            showNotification('Mode offline - fitur terbatas', 'error');
+            
+            // Disable server-dependent features
+            document.querySelector('.btn-small').disabled = true;
+            document.querySelector('.send-btn').onclick = function() {
+                addMessage({
+                    id: Date.now(),
+                    username: currentUser.username,
+                    text: document.getElementById('messageInput').value,
+                    timestamp: new Date().toISOString()
+                });
+                document.getElementById('messageInput').value = '';
+            };
+        }
+        
         function initializeSocket() {
-            // Initialize socket.io connection
-            socket = io();
+            // Check if socket.io is available
+            if (typeof io === 'undefined') {
+                console.warn('Socket.IO not available, using fallback mode');
+                showNotification('Socket.IO tidak tersedia - mode terbatas', 'error');
+                return;
+            }
             
-            // Join chat room
-            socket.emit('join-chat', currentUser);
-            
-            // Socket event listeners
-            socket.on('message', (data) => {
-                addMessage(data);
-            });
-            
-            socket.on('user-joined', (user) => {
-                addUser(user);
-                showNotification(`${user.username} bergabung ke chat`);
-            });
-            
-            socket.on('user-left', (user) => {
-                removeUser(user.id);
-                showNotification(`${user.username} meninggalkan chat`);
-            });
-            
-            socket.on('users-update', (usersList) => {
-                updateUsersList(usersList);
-            });
-            
-            socket.on('message-deleted', (messageId) => {
-                removeMessage(messageId);
-            });
-            
-            socket.on('all-messages-cleared', () => {
-                clearMessages();
-                showNotification('Semua pesan telah dihapus');
-            });
-            
-            socket.on('connect', () => {
-                updateUserStatus(true);
-                showNotification('Terhubung ke server');
-            });
-            
-            socket.on('disconnect', () => {
-                updateUserStatus(false);
-                showNotification('Terputus dari server', 'error');
-            });
-            
-            socket.on('connect_error', () => {
-                showNotification('Gagal terhubung ke server', 'error');
-            });
+            try {
+                // Initialize socket.io connection
+                socket = io();
+                
+                // Join chat room
+                socket.emit('join-chat', currentUser);
+                
+                // Socket event listeners
+                socket.on('message', (data) => {
+                    addMessage(data);
+                });
+                
+                socket.on('user-joined', (user) => {
+                    addUser(user);
+                    showNotification(`${user.username} bergabung ke chat`);
+                });
+                
+                socket.on('user-left', (user) => {
+                    removeUser(user.id);
+                    showNotification(`${user.username} meninggalkan chat`);
+                });
+                
+                socket.on('users-update', (usersList) => {
+                    updateUsersList(usersList);
+                });
+                
+                socket.on('message-deleted', (messageId) => {
+                    removeMessage(messageId);
+                });
+                
+                socket.on('all-messages-cleared', () => {
+                    clearMessages();
+                    showNotification('Semua pesan telah dihapus');
+                });
+                
+                socket.on('connect', () => {
+                    updateUserStatus(true);
+                    showNotification('Terhubung ke server');
+                });
+                
+                socket.on('disconnect', () => {
+                    updateUserStatus(false);
+                    showNotification('Terputus dari server', 'error');
+                });
+                
+                socket.on('connect_error', () => {
+                    showNotification('Gagal terhubung ke server', 'error');
+                });
+                
+            } catch (error) {
+                console.error('Socket initialization error:', error);
+                showNotification('Gagal menginisialisasi koneksi real-time', 'error');
+            }
         }
         
         function setupEventListeners() {
@@ -438,8 +497,18 @@
                 timestamp: new Date().toISOString()
             };
             
-            // Send to server
-            socket.emit('send-message', messageData);
+            // Send to server if socket is available
+            if (socket && typeof socket.emit === 'function') {
+                socket.emit('send-message', messageData);
+            } else {
+                // Fallback: add message locally
+                addMessage({
+                    id: Date.now(),
+                    username: currentUser.username,
+                    text: text,
+                    timestamp: new Date().toISOString()
+                });
+            }
             
             // Clear input
             messageInput.value = '';
@@ -487,19 +556,35 @@
         }
         
         function loadMessages() {
-            // Request messages from server
-            socket.emit('get-messages');
+            // Only try to load messages if socket is available
+            if (!socket || typeof socket.emit !== 'function') {
+                console.log('Socket not available, skipping message loading');
+                return;
+            }
             
-            socket.on('messages-loaded', (messagesList) => {
-                messagesList.forEach(msg => {
-                    addMessage(msg);
+            try {
+                // Request messages from server
+                socket.emit('get-messages');
+                
+                socket.on('messages-loaded', (messagesList) => {
+                    messagesList.forEach(msg => {
+                        addMessage(msg);
+                    });
                 });
-            });
+            } catch (error) {
+                console.error('Error loading messages:', error);
+            }
         }
         
         function clearAllMessages() {
             if (confirm('Yakin ingin menghapus semua pesan?')) {
-                socket.emit('clear-all-messages');
+                if (socket && typeof socket.emit === 'function') {
+                    socket.emit('clear-all-messages');
+                } else {
+                    // Fallback: clear locally
+                    clearMessages();
+                    showNotification('Pesan dihapus (mode offline)');
+                }
             }
         }
         
