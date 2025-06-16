@@ -1,31 +1,21 @@
 {
-  "name": "private-chat-app",
+  "name": "chat-selingkuh",
   "version": "1.0.0",
-  "description": "Private chat application for 2 users with auto-delete messages",
-  "main": "app.js",
+  "description": "A simple 2-user chat app with Node.js and JSON storage",
+  "main": "server.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "nodemon app.js"
+    "start": "node server.js"
   },
-  "keywords": [
-    "chat",
-    "nodejs",
-    "socket.io",
-    "private",
-    "real-time"
-  ],
-  "author": "Your Name",
-  "license": "MIT",
   "dependencies": {
+    "body-parser": "^1.20.2",
+    "cookie-parser": "^1.4.6",
     "express": "^4.18.2",
-    "socket.io": "^4.7.2",
-    "bcrypt": "^5.1.1",
-    "express-session": "^1.17.3"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
+    "uuid": "^9.0.0",
+    "cors": "^2.8.5"
   },
   "engines": {
-    "node": ">=14.0.0"
-  }
+    "node": ">=14"
+  },
+  "author": "User",
+  "license": "MIT"
 }
