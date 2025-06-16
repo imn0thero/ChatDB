@@ -10,7 +10,7 @@
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -19,285 +19,177 @@
             align-items: center;
             justify-content: center;
         }
-
+        
         .container {
             background: white;
-            padding: 40px;
+            padding: 2rem;
             border-radius: 15px;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            width: 400px;
-            max-width: 90%;
+            width: 100%;
+            max-width: 400px;
         }
-
-        .logo {
+        
+        .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 2rem;
         }
-
-        .logo h1 {
-            color: #667eea;
-            font-size: 28px;
-            margin-bottom: 10px;
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
         }
-
-        .logo p {
+        
+        .header p {
             color: #666;
-            font-size: 14px;
+            font-size: 0.9rem;
         }
-
+        
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 1.5rem;
         }
-
-        label {
+        
+        .form-group label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 0.5rem;
             color: #333;
             font-weight: 500;
         }
-
-        input[type="text"], input[type="password"] {
+        
+        .form-group input {
             width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e1e1e1;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 1rem;
             transition: border-color 0.3s;
         }
-
-        input[type="text"]:focus, input[type="password"]:focus {
+        
+        .form-group input:focus {
             outline: none;
             border-color: #667eea;
         }
-
+        
         .btn {
             width: 100%;
-            padding: 12px;
+            padding: 0.75rem;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
+            font-size: 1rem;
             cursor: pointer;
             transition: transform 0.2s;
-            margin-bottom: 15px;
         }
-
+        
         .btn:hover {
             transform: translateY(-2px);
         }
-
+        
         .btn:active {
             transform: translateY(0);
         }
-
-        .btn-secondary {
-            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-            color: #333;
-        }
-
-        .error {
-            background: #fee;
-            color: #c33;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-            border-left: 4px solid #c33;
-        }
-
-        .success {
-            background: #efe;
-            color: #3c3;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-            border-left: 4px solid #3c3;
-        }
-
-        .switch-mode {
+        
+        .links {
             text-align: center;
-            margin-top: 20px;
-            color: #666;
+            margin-top: 1.5rem;
         }
-
-        .switch-mode a {
+        
+        .links a {
             color: #667eea;
             text-decoration: none;
             font-weight: 500;
         }
-
-        .switch-mode a:hover {
+        
+        .links a:hover {
             text-decoration: underline;
         }
-
-        .loading {
-            opacity: 0.7;
-            pointer-events: none;
+        
+        .alert {
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .alert.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="logo">
-            <h1>💬 Private Chat</h1>
-            <p>Ruang chat pribadi untuk 2 orang</p>
+        <div class="header">
+            <h1>🔒 Private Chat</h1>
+            <p>Masuk ke ruang chat pribadi</p>
         </div>
-
-        <div id="message"></div>
-
+        
+        <div id="alert" class="alert"></div>
+        
         <form id="loginForm">
             <div class="form-group">
-                <label for="username">Username:</label>
+                <label for="username">Username</label>
                 <input type="text" id="username" name="username" required>
             </div>
-
+            
             <div class="form-group">
-                <label for="password">Password:</label>
+                <label for="password">Password</label>
                 <input type="password" id="password" name="password" required>
             </div>
-
-            <button type="submit" class="btn" id="loginBtn">Masuk</button>
-            <button type="button" class="btn btn-secondary" id="registerBtn">Daftar Akun Baru</button>
+            
+            <button type="submit" class="btn">Masuk</button>
         </form>
-
-        <div class="switch-mode">
-            <p>Belum punya akun? <a href="#" id="switchToRegister">Daftar di sini</a></p>
-            <p style="display: none;" id="switchToLogin">Sudah punya akun? <a href="#">Login di sini</a></p>
+        
+        <div class="links">
+            <p>Belum punya akun? <a href="/signup">Daftar di sini</a></p>
         </div>
     </div>
 
     <script>
-        let isRegisterMode = false;
-
-        function showMessage(message, type = 'error') {
-            const messageDiv = document.getElementById('message');
-            messageDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        function showAlert(message, type) {
+            const alertDiv = document.getElementById('alert');
+            alertDiv.textContent = message;
+            alertDiv.className = `alert ${type}`;
+            alertDiv.style.display = 'block';
+            
             setTimeout(() => {
-                messageDiv.innerHTML = '';
+                alertDiv.style.display = 'none';
             }, 5000);
         }
-
-        function setLoading(loading) {
-            const container = document.querySelector('.container');
-            if (loading) {
-                container.classList.add('loading');
-            } else {
-                container.classList.remove('loading');
-            }
-        }
-
-        function switchMode() {
-            isRegisterMode = !isRegisterMode;
-            const loginBtn = document.getElementById('loginBtn');
-            const registerBtn = document.getElementById('registerBtn');
-            const switchToRegister = document.getElementById('switchToRegister');
-            const switchToLogin = document.getElementById('switchToLogin');
-            const title = document.querySelector('.logo h1');
-            const subtitle = document.querySelector('.logo p');
-
-            if (isRegisterMode) {
-                loginBtn.style.display = 'none';
-                registerBtn.style.display = 'block';
-                switchToRegister.parentElement.style.display = 'none';
-                switchToLogin.parentElement.style.display = 'block';
-                title.textContent = '📝 Daftar Akun';
-                subtitle.textContent = 'Buat akun baru untuk chat pribadi';
-            } else {
-                loginBtn.style.display = 'block';
-                registerBtn.style.display = 'none';
-                switchToRegister.parentElement.style.display = 'block';
-                switchToLogin.parentElement.style.display = 'none';
-                title.textContent = '💬 Private Chat';
-                subtitle.textContent = 'Ruang chat pribadi untuk 2 orang';
-            }
-        }
-
-        document.getElementById('switchToRegister').addEventListener('click', (e) => {
-            e.preventDefault();
-            switchMode();
-        });
-
-        document.getElementById('switchToLogin').addEventListener('click', (e) => {
-            e.preventDefault();
-            switchMode();
-        });
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            if (!username || !password) {
-                showMessage('Username dan password harus diisi');
-                return;
-            }
-
-            setLoading(true);
-
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
             try {
-                const response = await fetch('/login', {
+                const response = await fetch('/api/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify(data)
                 });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    window.location.href = '/chat';
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    window.location.href = '/';
                 } else {
-                    showMessage(data.error);
+                    showAlert(result.message, 'error');
                 }
             } catch (error) {
-                showMessage('Terjadi kesalahan. Silakan coba lagi.');
-            } finally {
-                setLoading(false);
+                showAlert('Terjadi kesalahan saat login', 'error');
             }
         });
-
-        document.getElementById('registerBtn').addEventListener('click', async () => {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            if (!username || !password) {
-                showMessage('Username dan password harus diisi');
-                return;
-            }
-
-            setLoading(true);
-
-            try {
-                const response = await fetch('/register', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ username, password })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    showMessage('Akun berhasil dibuat! Silakan login.', 'success');
-                    switchMode();
-                    document.getElementById('username').value = username;
-                    document.getElementById('password').value = '';
-                } else {
-                    showMessage(data.error);
-                }
-            } catch (error) {
-                showMessage('Terjadi kesalahan. Silakan coba lagi.');
-            } finally {
-                setLoading(false);
-            }
-        });
-
-    
     </script>
 </body>
 </html>
