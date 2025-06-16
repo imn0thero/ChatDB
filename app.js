@@ -1,255 +1,223 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 const bcrypt = require('bcrypt');
+const session = require('express-session');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
+app.use(session({
+    secret: 'private-chat-secret-key',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false }
+}));
 
-// File paths untuk JSON storage
-const USERS_FILE = path.join(__dirname, 'data', 'users.json');
-const MESSAGES_FILE = path.join(__dirname, 'data', 'messages.json');
+const DATA_FILE = 'chat_data.json';
 
-// Pastikan folder data exists
-if (!fs.existsSync(path.join(__dirname, 'data'))) {
-    fs.mkdirSync(path.join(__dirname, 'data'));
-}
+// Initialize data structure
+const initData = {
+    users: {},
+    messages: []
+};
 
-// Helper functions untuk read/write JSON
-function readJSON(filePath, defaultValue = []) {
+// Load data from JSON file
+async function loadData() {
     try {
-        if (fs.existsSync(filePath)) {
-            const data = fs.readFileSync(filePath, 'utf8');
-            return JSON.parse(data);
-        }
-        return defaultValue;
+        const data = await fs.readFile(DATA_FILE, 'utf8');
+        return JSON.parse(data);
     } catch (error) {
-        console.error('Error reading JSON:', error);
-        return defaultValue;
+        await saveData(initData);
+        return initData;
     }
 }
 
-function writeJSON(filePath, data) {
-    try {
-        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-        return true;
-    } catch (error) {
-        console.error('Error writing JSON:', error);
-        return false;
-    }
+// Save data to JSON file
+async function saveData(data) {
+    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
-// Load initial data
-let users = readJSON(USERS_FILE, []);
-let messages = readJSON(MESSAGES_FILE, []);
-
-// Fungsi untuk hapus pesan otomatis setelah 24 jam
-function autoDeleteMessages() {
-    const now = new Date();
-    const cutoffTime = now.getTime() - (24 * 60 * 60 * 1000); // 24 jam yang lalu
-    
-    const originalLength = messages.length;
-    messages = messages.filter(message => {
-        return new Date(message.timestamp).getTime() > cutoffTime;
-    });
-    
-    if (messages.length !== originalLength) {
-        writeJSON(MESSAGES_FILE, messages);
-        console.log(`Auto-deleted ${originalLength - messages.length} old messages`);
-        io.emit('messagesUpdated', messages);
-    }
+// Clean messages older than 24 hours
+async function cleanOldMessages() {
+    const data = await loadData();
+    const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+    data.messages = data.messages.filter(msg => msg.timestamp > twentyFourHoursAgo);
+    await saveData(data);
 }
 
-// Jalankan auto delete setiap 1 jam
-setInterval(autoDeleteMessages, 60 * 60 * 1000);
+// Run cleanup every hour
+setInterval(cleanOldMessages, 60 * 60 * 1000);
 
-// Jalankan auto delete saat server start
-autoDeleteMessages();
+// Authentication middleware
+function requireAuth(req, res, next) {
+    if (req.session.userId) {
+        next();
+    } else {
+        res.redirect('/login');
+    }
+}
 
 // Routes
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-
-app.get('/chat', (req, res) => {
+app.get('/', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'chat.html'));
 });
 
-// Register endpoint
-app.post('/register', async (req, res) => {
-    const { username, password } = req.body;
-    
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Username dan password diperlukan' });
-    }
-    
-    // Batasi hanya 2 user
-    if (users.length >= 2) {
-        return res.status(400).json({ error: 'Maksimal hanya 2 user yang diperbolehkan' });
-    }
-    
-    // Cek apakah username sudah ada
-    if (users.find(user => user.username === username)) {
-        return res.status(400).json({ error: 'Username sudah digunakan' });
-    }
-    
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/signup', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'signup.html'));
+});
+
+// API Routes
+app.post('/api/signup', async (req, res) => {
     try {
+        const { username, password } = req.body;
+        const data = await loadData();
+
+        if (data.users[username]) {
+            return res.json({ success: false, message: 'Username sudah digunakan' });
+        }
+
+        if (Object.keys(data.users).length >= 2) {
+            return res.json({ success: false, message: 'Maksimal hanya 2 pengguna yang diizinkan' });
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = {
-            id: Date.now().toString(),
-            username,
+        data.users[username] = {
             password: hashedPassword,
             isOnline: false,
-            lastSeen: new Date().toISOString()
+            lastSeen: Date.now()
         };
-        
-        users.push(newUser);
-        writeJSON(USERS_FILE, users);
-        
-        res.json({ success: true, message: 'User berhasil didaftarkan' });
+
+        await saveData(data);
+        res.json({ success: true, message: 'Akun berhasil dibuat' });
     } catch (error) {
-        res.status(500).json({ error: 'Gagal mendaftarkan user' });
+        res.json({ success: false, message: 'Terjadi kesalahan' });
     }
 });
 
-// Login endpoint
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    
-    const user = users.find(u => u.username === username);
-    if (!user) {
-        return res.status(400).json({ error: 'Username tidak ditemukan' });
-    }
-    
+app.post('/api/login', async (req, res) => {
     try {
-        const isValidPassword = await bcrypt.compare(password, user.password);
-        if (!isValidPassword) {
-            return res.status(400).json({ error: 'Password salah' });
+        const { username, password } = req.body;
+        const data = await loadData();
+
+        if (!data.users[username]) {
+            return res.json({ success: false, message: 'Username tidak ditemukan' });
         }
-        
-        // Update status online
-        user.isOnline = true;
-        user.lastSeen = new Date().toISOString();
-        writeJSON(USERS_FILE, users);
-        
-        res.json({ 
-            success: true, 
-            user: { 
-                id: user.id, 
-                username: user.username 
-            } 
-        });
+
+        const isValid = await bcrypt.compare(password, data.users[username].password);
+        if (isValid) {
+            req.session.userId = username;
+            data.users[username].isOnline = true;
+            data.users[username].lastSeen = Date.now();
+            await saveData(data);
+            res.json({ success: true });
+        } else {
+            res.json({ success: false, message: 'Password salah' });
+        }
     } catch (error) {
-        res.status(500).json({ error: 'Gagal login' });
+        res.json({ success: false, message: 'Terjadi kesalahan' });
     }
 });
 
-// Get messages endpoint
-app.get('/messages', (req, res) => {
-    res.json(messages);
-});
-
-// Delete all messages endpoint
-app.delete('/messages', (req, res) => {
-    messages = [];
-    writeJSON(MESSAGES_FILE, messages);
-    io.emit('messagesCleared');
+app.post('/api/logout', async (req, res) => {
+    if (req.session.userId) {
+        const data = await loadData();
+        data.users[req.session.userId].isOnline = false;
+        data.users[req.session.userId].lastSeen = Date.now();
+        await saveData(data);
+        req.session.destroy();
+    }
     res.json({ success: true });
 });
 
-// Get users status endpoint
-app.get('/users-status', (req, res) => {
-    const usersStatus = users.map(user => ({
-        id: user.id,
-        username: user.username,
-        isOnline: user.isOnline,
-        lastSeen: user.lastSeen
-    }));
-    res.json(usersStatus);
+app.get('/api/user', requireAuth, async (req, res) => {
+    const data = await loadData();
+    const currentUser = req.session.userId;
+    const otherUser = Object.keys(data.users).find(u => u !== currentUser);
+    
+    res.json({
+        currentUser,
+        otherUser: otherUser ? {
+            username: otherUser,
+            isOnline: data.users[otherUser].isOnline,
+            lastSeen: data.users[otherUser].lastSeen
+        } : null
+    });
 });
 
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
-    
-    // User join
-    socket.on('userJoin', (userData) => {
-        socket.userId = userData.id;
-        socket.username = userData.username;
+app.get('/api/messages', requireAuth, async (req, res) => {
+    const data = await loadData();
+    res.json(data.messages);
+});
+
+app.delete('/api/messages', requireAuth, async (req, res) => {
+    const data = await loadData();
+    data.messages = [];
+    await saveData(data);
+    res.json({ success: true });
+});
+
+// Socket.IO
+io.on('connection', async (socket) => {
+    socket.on('join', async (username) => {
+        socket.username = username;
+        const data = await loadData();
+        data.users[username].isOnline = true;
+        data.users[username].lastSeen = Date.now();
+        await saveData(data);
         
-        // Update user status
-        const user = users.find(u => u.id === userData.id);
-        if (user) {
-            user.isOnline = true;
-            user.lastSeen = new Date().toISOString();
-            writeJSON(USERS_FILE, users);
-        }
-        
-        // Broadcast user status update
-        io.emit('userStatusUpdate', {
-            users: users.map(u => ({
-                id: u.id,
-                username: u.username,
-                isOnline: u.isOnline,
-                lastSeen: u.lastSeen
-            }))
+        socket.broadcast.emit('userStatusChanged', {
+            username,
+            isOnline: true,
+            lastSeen: Date.now()
         });
-        
-        // Send existing messages
-        socket.emit('loadMessages', messages);
     });
-    
-    // Handle new message
-    socket.on('newMessage', (messageData) => {
+
+    socket.on('sendMessage', async (messageData) => {
+        const data = await loadData();
         const message = {
-            id: Date.now().toString(),
-            userId: socket.userId,
-            username: socket.username,
+            id: Date.now() + Math.random(),
+            sender: messageData.sender,
             text: messageData.text,
-            timestamp: new Date().toISOString()
+            timestamp: Date.now()
         };
         
-        messages.push(message);
-        writeJSON(MESSAGES_FILE, messages);
+        data.messages.push(message);
+        await saveData(data);
         
-        // Broadcast to all clients
-        io.emit('messageReceived', message);
+        io.emit('newMessage', message);
     });
-    
-    // Handle disconnect
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
-        
-        if (socket.userId) {
-            const user = users.find(u => u.id === socket.userId);
-            if (user) {
-                user.isOnline = false;
-                user.lastSeen = new Date().toISOString();
-                writeJSON(USERS_FILE, users);
-                
-                // Broadcast user status update
-                io.emit('userStatusUpdate', {
-                    users: users.map(u => ({
-                        id: u.id,
-                        username: u.username,
-                        isOnline: u.isOnline,
-                        lastSeen: u.lastSeen
-                    }))
-                });
-            }
+
+    socket.on('disconnect', async () => {
+        if (socket.username) {
+            const data = await loadData();
+            data.users[socket.username].isOnline = false;
+            data.users[socket.username].lastSeen = Date.now();
+            await saveData(data);
+            
+            socket.broadcast.emit('userStatusChanged', {
+                username: socket.username,
+                isOnline: false,
+                lastSeen: Date.now()
+            });
         }
     });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Open http://localhost:${PORT} in your browser`);
+    console.log(`Server berjalan di port ${PORT}`);
 });
+
+// Initial cleanup
+cleanOldMessages();
