@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Private Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+            font-weight: 300;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4caf50;
+        }
+        
+        .status-indicator.offline {
+            background: #f44336;
+        }
+        
+        .logout-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .logout-btn:hover {
+            background: #d32f2f;
+        }
+        
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .chat-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-small {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .btn-small:hover {
+            background: #c82333;
+        }
+        
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        
+        .message.own {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .message.other {
+            background: #e9ecef;
+            color: #333;
+            margin-right: auto;
+        }
+        
+        .message-info {
+            font-size: 11px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        
+        .message-text {
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .message-time {
+            font-size: 10px;
+            opacity: 0.6;
+            margin-top: 5px;
+        }
+        
+        .input-container {
+            padding: 20px;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e1e1e1;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .message-input:focus {
+            border-color: #667eea;
+        }
+        
+        .send-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .send-btn:hover {
+            transform: translateY(-1px);
+        }
+        
+        .users-list {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .user-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .user-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .no-messages {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 40px;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4caf50;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .notification.error {
+            background: #f44336;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @media (max-width: 768px) {
+            .chat-container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .message {
+                max-width: 85%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Private Chat</h1>
+        <div class="user-info">
+            <div class="user-status">
+                <div class="status-indicator" id="myStatus"></div>
+                <span id="myUsername">Loading...</span>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+    
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="chat-info">
+                <span>💬 Chat Pribadi</span>
+                <small id="autoDeleteInfo">Pesan otomatis terhapus setelah 24 jam</small>
+            </div>
+            <div class="chat-actions">
+                <button class="btn-small" onclick="clearAllMessages()">Hapus Semua</button>
+            </div>
+        </div>
+        
+        <div class="users-list" id="usersList">
+            <strong>Pengguna Online:</strong>
+            <div id="usersContainer"></div>
+        </div>
+        
+        <div class="messages" id="messages">
+            <div class="no-messages" id="noMessages">Belum ada pesan. Mulai percakapan!</div>
+        </div>
+        
+        <div class="input-container">
+            <input type="text" class="message-input" id="messageInput" placeholder="Ketik pesan..." maxlength="500">
+            <button class="send-btn" onclick="sendMessage()">Kirim</button>
+        </div>
+    </div>
+
+    <script>
+        // Simulate Socket.IO (since it's not available in this environment)
+        const socket = {
+            emit: function(event, data) {
+                console.log(`Emitting ${event}:`, data);
+                // Simulate server response
+                setTimeout(() => {
+                    if (event === 'send-message') {
+                        this.receive('message', {
+                            id: Date.now(),
+                            username: currentUser.username,
+                            text: data.text,
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+                }, 100);
+            },
+            on: function(event, callback) {
+                this.listeners = this.listeners || {};
+                this.listeners[event] = callback;
+            },
+            receive: function(event, data) {
+                if (this.listeners && this.listeners[event]) {
+                    this.listeners[event](data);
+                }
+            }
+        };
+
+        let currentUser = null;
+        let users = [];
+        let messages = [];
+        
+        // Initialize
+        async function init() {
+            try {
+                // Simulate user authentication
+                currentUser = {
+                    id: 'user_' + Math.random().toString(36).substr(2, 9),
+                    username: 'User' + Math.floor(Math.random() * 1000),
+                    isOnline: true
+                };
+                
+                document.getElementById('myUsername').textContent = currentUser.username;
+                updateUserStatus(true);
+                
+                // Initialize socket connections
+                initializeSocket();
+                
+                // Load existing messages
+                loadMessages();
+                
+                // Setup event listeners
+                setupEventListeners();
+                
+                // Add some demo users
+                addDemoUsers();
+                
+                showNotification('Berhasil terhubung ke chat!');
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showNotification('Gagal menginisialisasi chat', 'error');
+            }
+        }
+        
+        function initializeSocket() {
+            // Socket event listeners
+            socket.on('message', (data) => {
+                addMessage(data);
+            });
+            
+            socket.on('user-joined', (user) => {
+                addUser(user);
+                showNotification(`${user.username} bergabung ke chat`);
+            });
+            
+            socket.on('user-left', (user) => {
+                removeUser(user.id);
+                showNotification(`${user.username} meninggalkan chat`);
+            });
+            
+            socket.on('users-update', (usersList) => {
+                updateUsersList(usersList);
+            });
+            
+            socket.on('message-deleted', (messageId) => {
+                removeMessage(messageId);
+            });
+            
+            socket.on('all-messages-cleared', () => {
+                clearMessages();
+                showNotification('Semua pesan telah dihapus');
+            });
+        }
+        
+        function setupEventListeners() {
+            const messageInput = document.getElementById('messageInput');
+            
+            // Enter key to send message
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // Auto-resize input
+            messageInput.addEventListener('input', (e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = e.target.scrollHeight + 'px';
+            });
+            
+            // Page visibility API to handle user status
+            document.addEventListener('visibilitychange', () => {
+                updateUserStatus(!document.hidden);
+            });
+            
+            // Handle page unload
+            window.addEventListener('beforeunload', () => {
+                socket.emit('user-disconnect', currentUser);
+            });
+        }
+        
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const text = messageInput.value.trim();
+            
+            if (!text) {
+                showNotification('Pesan tidak boleh kosong', 'error');
+                return;
+            }
+            
+            if (text.length > 500) {
+                showNotification('Pesan terlalu panjang (maksimal 500 karakter)', 'error');
+                return;
+            }
+            
+            const messageData = {
+                text: text,
+                timestamp: new Date().toISOString()
+            };
+            
+            // Send to server
+            socket.emit('send-message', messageData);
+            
+            // Clear input
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            messageInput.focus();
+        }
+        
+        function addMessage(messageData) {
+            const messagesContainer = document.getElementById('messages');
+            const noMessages = document.getElementById('noMessages');
+            
+            // Hide no messages indicator
+            if (noMessages) {
+                noMessages.style.display = 'none';
+            }
+            
+            // Create message element
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${messageData.username === currentUser.username ? 'own' : 'other'}`;
+            messageElement.dataset.messageId = messageData.id;
+            
+            const time = new Date(messageData.timestamp).toLocaleTimeString('id-ID', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            messageElement.innerHTML = `
+                <div class="message-info">${messageData.username}</div>
+                <div class="message-text">${escapeHtml(messageData.text)}</div>
+                <div class="message-time">${time}</div>
+            `;
+            
+            messagesContainer.appendChild(messageElement);
+            
+            // Auto scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Add to messages array
+            messages.push(messageData);
+            
+            // Play notification sound (simulate)
+            if (messageData.username !== currentUser.username) {
+                playNotificationSound();
+            }
+        }
+        
+        function loadMessages() {
+            // Simulate loading messages from server/storage
+            const savedMessages = localStorage.getItem('chatMessages');
+            if (savedMessages) {
+                try {
+                    const parsedMessages = JSON.parse(savedMessages);
+                    parsedMessages.forEach(msg => {
+                        // Only load messages from last 24 hours
+                        const messageTime = new Date(msg.timestamp);
+                        const now = new Date();
+                        const hoursDiff = (now - messageTime) / (1000 * 60 * 60);
+                        
+                        if (hoursDiff < 24) {
+                            addMessage(msg);
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error loading messages:', error);
+                }
+            }
+        }
+        
+        function clearAllMessages() {
+            if (confirm('Yakin ingin menghapus semua pesan?')) {
+                socket.emit('clear-all-messages');
+                clearMessages();
+                localStorage.removeItem('chatMessages');
+            }
+        }
+        
+        function clearMessages() {
+            const messagesContainer = document.getElementById('messages');
+            const noMessages = document.getElementById('noMessages');
+            
+            messagesContainer.innerHTML = '';
+            messagesContainer.appendChild(noMessages);
+            noMessages.style.display = 'block';
+            
+            messages = [];
+        }
+        
+        function removeMessage(messageId) {
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (messageElement) {
+                messageElement.remove();
+            }
+            
+            messages = messages.filter(msg => msg.id !== messageId);
+            
+            // Show no messages if empty
+            if (messages.length === 0) {
+                document.getElementById('noMessages').style.display = 'block';
+            }
+        }
+        
+        function updateUsersList(usersList) {
+            users = usersList;
+            const usersContainer = document.getElementById('usersContainer');
+            
+            usersContainer.innerHTML = '';
+            
+            users.forEach(user => {
+                const userElement = document.createElement('div');
+                userElement.className = 'user-item';
+                userElement.innerHTML = `
+                    <div class="status-indicator ${user.isOnline ? '' : 'offline'}"></div>
+                    <span>${user.username} ${user.id === currentUser.id ? '(Anda)' : ''}</span>
+                `;
+                usersContainer.appendChild(userElement);
+            });
+        }
+        
+        function addUser(user) {
+            if (!users.find(u => u.id === user.id)) {
+                users.push(user);
+                updateUsersList(users);
+            }
+        }
+        
+        function removeUser(userId) {
+            users = users.filter(user => user.id !== userId);
+            updateUsersList(users);
+        }
+        
+        function addDemoUsers() {
+            const demoUsers = [
+                { id: 'demo1', username: 'Alice', isOnline: true },
+                { id: 'demo2', username: 'Bob', isOnline: false },
+                { id: 'demo3', username: 'Charlie', isOnline: true }
+            ];
+            
+            users = [currentUser, ...demoUsers];
+            updateUsersList(users);
+        }
+        
+        function updateUserStatus(isOnline) {
+            const statusIndicator = document.getElementById('myStatus');
+            if (isOnline) {
+                statusIndicator.classList.remove('offline');
+                currentUser.isOnline = true;
+            } else {
+                statusIndicator.classList.add('offline');
+                currentUser.isOnline = false;
+            }
+            
+            // Notify server about status change
+            socket.emit('status-change', { userId: currentUser.id, isOnline: isOnline });
+        }
+        
+        function logout() {
+            if (confirm('Yakin ingin logout?')) {
+                // Clean up
+                socket.emit('user-disconnect', currentUser);
+                
+                // Clear user data
+                currentUser = null;
+                users = [];
+                messages = [];
+                
+                // Redirect to login (simulate)
+                showNotification('Berhasil logout');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1000);
+            }
+        }
+        
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+        
+        function playNotificationSound() {
+            // Simulate notification sound
+            console.log('🔔 New message notification');
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Auto-delete old messages (simulate)
+        setInterval(() => {
+            const now = new Date();
+            messages = messages.filter(msg => {
+                const messageTime = new Date(msg.timestamp);
+                const hoursDiff = (now - messageTime) / (1000 * 60 * 60);
+                return hoursDiff < 24;
+            });
+            
+            // Save to localStorage
+            localStorage.setItem('chatMessages', JSON.stringify(messages));
+        }, 60000); // Check every minute
+        
+        // Initialize the app
+        init();
+    </script>
+</body>
+</html>
