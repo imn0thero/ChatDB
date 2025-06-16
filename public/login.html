@@ -182,7 +182,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    window.location.href = '/chat.html';
+                    window.location.href = '/';
                 } else {
                     showAlert(result.message, 'error');
                 }
