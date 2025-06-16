@@ -1,55 +1,306 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Modak&family=Barrio&family=Nova+Round&display=swap" rel="stylesheet" />
-  <title>HaiChat - Login</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Private Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            width: 400px;
+            max-width: 90%;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            color: #667eea;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .logo p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-bottom: 15px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #333;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border-left: 4px solid #c33;
+        }
+
+        .success {
+            background: #efe;
+            color: #3c3;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border-left: 4px solid #3c3;
+        }
+
+        .switch-mode {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+        }
+
+        .switch-mode a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .switch-mode a:hover {
+            text-decoration: underline;
+        }
+
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Login</h2>
-    <input id="username" type="text" placeholder="Username" autocomplete="off" />
-    <input id="password" type="password" placeholder="Password" autocomplete="off" />
-    <button id="loginBtn">Login</button>
-    <p id="msg" class="msg"></p>
-    <p>Belum punya akun? <a href="signup.html">Daftar di sini</a></p>
-  </div>
+    <div class="container">
+        <div class="logo">
+            <h1>💬 Private Chat</h1>
+            <p>Ruang chat pribadi untuk 2 orang</p>
+        </div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
+        <div id="message"></div>
 
-    document.getElementById('loginBtn').onclick = () => {
-      const username = document.getElementById('username').value.trim();
-      const password = document.getElementById('password').value.trim();
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
 
-      if (!username || !password) {
-        showMessage('Username dan password wajib diisi');
-        return;
-      }
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
 
-      socket.emit('login', { username, password });
-    };
+            <button type="submit" class="btn" id="loginBtn">Masuk</button>
+            <button type="button" class="btn btn-secondary" id="registerBtn">Daftar Akun Baru</button>
+        </form>
 
-    socket.on('loginResult', res => {
-      if (res.success) {
-        localStorage.setItem('username', res.user);
-        localStorage.setItem('password', document.getElementById('password').value);
-        window.location.href = 'index.html';
-      } else {
-        showMessage(res.message);
-      }
-    });
+        <div class="switch-mode">
+            <p>Belum punya akun? <a href="#" id="switchToRegister">Daftar di sini</a></p>
+            <p style="display: none;" id="switchToLogin">Sudah punya akun? <a href="#">Login di sini</a></p>
+        </div>
+    </div>
 
-    function showMessage(msg) {
-      const el = document.getElementById('msg');
-      el.innerText = msg;
-      el.style.color = 'red';
-    }
-  </script>
+    <script>
+        let isRegisterMode = false;
+
+        function showMessage(message, type = 'error') {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = `<div class="${type}">${message}</div>`;
+            setTimeout(() => {
+                messageDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        function setLoading(loading) {
+            const container = document.querySelector('.container');
+            if (loading) {
+                container.classList.add('loading');
+            } else {
+                container.classList.remove('loading');
+            }
+        }
+
+        function switchMode() {
+            isRegisterMode = !isRegisterMode;
+            const loginBtn = document.getElementById('loginBtn');
+            const registerBtn = document.getElementById('registerBtn');
+            const switchToRegister = document.getElementById('switchToRegister');
+            const switchToLogin = document.getElementById('switchToLogin');
+            const title = document.querySelector('.logo h1');
+            const subtitle = document.querySelector('.logo p');
+
+            if (isRegisterMode) {
+                loginBtn.style.display = 'none';
+                registerBtn.style.display = 'block';
+                switchToRegister.parentElement.style.display = 'none';
+                switchToLogin.parentElement.style.display = 'block';
+                title.textContent = '📝 Daftar Akun';
+                subtitle.textContent = 'Buat akun baru untuk chat pribadi';
+            } else {
+                loginBtn.style.display = 'block';
+                registerBtn.style.display = 'none';
+                switchToRegister.parentElement.style.display = 'block';
+                switchToLogin.parentElement.style.display = 'none';
+                title.textContent = '💬 Private Chat';
+                subtitle.textContent = 'Ruang chat pribadi untuk 2 orang';
+            }
+        }
+
+        document.getElementById('switchToRegister').addEventListener('click', (e) => {
+            e.preventDefault();
+            switchMode();
+        });
+
+        document.getElementById('switchToLogin').addEventListener('click', (e) => {
+            e.preventDefault();
+            switchMode();
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                showMessage('Username dan password harus diisi');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    window.location.href = '/chat';
+                } else {
+                    showMessage(data.error);
+                }
+            } catch (error) {
+                showMessage('Terjadi kesalahan. Silakan coba lagi.');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        document.getElementById('registerBtn').addEventListener('click', async () => {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                showMessage('Username dan password harus diisi');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage('Akun berhasil dibuat! Silakan login.', 'success');
+                    switchMode();
+                    document.getElementById('username').value = username;
+                    document.getElementById('password').value = '';
+                } else {
+                    showMessage(data.error);
+                }
+            } catch (error) {
+                showMessage('Terjadi kesalahan. Silakan coba lagi.');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // Check if user is already logged in
+        if (localStorage.getItem('user')) {
+            window.location.href = '/chat';
+        }
+    </script>
 </body>
 </html>
