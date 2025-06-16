@@ -1,28 +1,15 @@
 {
-  "name": "private-chat-app",
+  "name": "chat-app",
   "version": "1.0.0",
-  "description": "Aplikasi chat pribadi untuk 2 pengguna dengan fitur auto-delete dan penyimpanan JSON",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "nodemon app.js"
+    "start": "node app.js"
   },
   "dependencies": {
+    "bcrypt": "^5.1.0",
     "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
     "socket.io": "^4.7.2",
-    "bcrypt": "^5.1.1",
-    "express-session": "^1.17.3"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
-  },
-  "keywords": [
-    "chat",
-    "private",
-    "nodejs",
-    "socketio",
-    "express"
-  ],
-  "author": "Private Chat App",
-  "license": "MIT"
+    "cors": "^2.8.5"
+  }
 }
