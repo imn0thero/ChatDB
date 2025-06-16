@@ -1,18 +1,29 @@
 {
-  "name": "hai-chat",
+  "name": "private-chat-app",
   "version": "1.0.0",
-  "description": "A simple real-time chat app using Node.js, Socket.IO, and MySQL on DOM Cloud",
-  "main": "server.js",
+  "description": "Aplikasi chat pribadi untuk 2 user dengan fitur auto-delete dan persistensi JSON",
+  "main": "app.js",
   "scripts": {
-    "start": "node app.js"
+    "start": "node app.js",
+    "dev": "nodemon app.js"
   },
-  "author": "Nama Kamu",
+  "keywords": [
+    "chat",
+    "nodejs",
+    "socket.io",
+    "private-chat"
+  ],
+  "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "bcrypt": "^5.1.1",
-    "express": "^4.19.2",
-    "mysql2": "^3.9.1",
-    "socket.io": "^4.7.5",
-    "uuid": "^9.0.1"
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4",
+    "bcrypt": "^5.1.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
