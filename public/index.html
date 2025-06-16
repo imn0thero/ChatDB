@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat Selingkuh</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="chat-container">
+        <header>
+            <span id="partner"></span>
+            <span id="status">(Offline)</span>
+            <button onclick="deleteAll()">Hapus Semua</button>
+            <a href="/api/logout">Logout</a>
+        </header>
+        <div id="chat-box"></div>
+        <form id="chat-form">
+            <input type="text" id="message-input" placeholder="Ketik pesan..." required />
+            <button type="submit">Kirim</button>
+        </form>
+    </div>
+
+    <script>
+        const userId = getCookie("userId");
+
+        function getCookie(name) {
+            const value = "; " + document.cookie;
+            const parts = value.split("; " + name + "=");
+            if (parts.length == 2) return parts.pop().split(";").shift();
+        }
+
+        async function fetchMessages() {
+            const res = await fetch('/api/messages');
+            const messages = await res.json();
+            const partner = await (await fetch('/api/user')).json();
+
+            document.getElementById('partner').textContent = partner.username;
+            document.getElementById('status').textContent = partner.online ? '(Online)' : `(Offline sejak ${new Date(partner.lastOnline).toLocaleString()})`;
+
+            const chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML = '';
+            messages.forEach(msg => {
+                const isMe = msg.sender === userId;
+                const time = new Date(msg.timestamp).toLocaleTimeString();
+                const div = document.createElement('div');
+                div.className = 'message ' + (isMe ? 'me' : 'other');
+                div.innerHTML = `<small>${time}</small><br>${msg.text}`;
+                chatBox.appendChild(div);
+            });
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            await fetch('/api/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+
+            input.value = '';
+            fetchMessages();
+        }
+
+        async function deleteAll() {
+            await fetch('/api/delete-all', { method: 'POST' });
+            fetchMessages();
+        }
+
+        document.getElementById('chat-form').addEventListener('submit', sendMessage);
+
+        setInterval(fetchMessages, 2000);
+        fetch('/api/online', { method: 'POST' }); // update online status
+        fetchMessages();
+    </script>
+</body>
+</html>
