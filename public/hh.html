@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login - Private Chat</title>
+  <style>
+    /* CSS tetap sama seperti milikmu */
+    /* [dipotong agar fokus ke fungsionalitas] */
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <h1>💬 Private Chat</h1>
+      <p>Ruang chat pribadi untuk 2 orang</p>
+    </div>
+
+    <div id="message"></div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="username">Username:</label>
+        <input type="text" id="username" required>
+      </div>
+      <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" id="password" required>
+      </div>
+      <button type="submit" class="btn" id="loginBtn">Masuk</button>
+      <button type="button" class="btn btn-secondary" id="registerBtn">Daftar Akun Baru</button>
+    </form>
+
+    <div class="switch-mode">
+      <p id="switchToRegister">Belum punya akun? <a href="#">Daftar di sini</a></p>
+      <p id="switchToLogin" style="display: none;">Sudah punya akun? <a href="#">Login di sini</a></p>
+    </div>
+  </div>
+
+  <script>
+    let isRegisterMode = false;
+
+    function showMessage(msg, type = 'error') {
+      const box = document.getElementById('message');
+      box.innerHTML = `<div class="${type}">${msg}</div>`;
+      setTimeout(() => box.innerHTML = '', 5000);
+    }
+
+    function setLoading(isLoading) {
+      document.querySelector('.container').classList.toggle('loading', isLoading);
+    }
+
+    function switchMode() {
+      isRegisterMode = !isRegisterMode;
+      document.getElementById('loginBtn').style.display = isRegisterMode ? 'none' : 'block';
+      document.getElementById('registerBtn').style.display = isRegisterMode ? 'block' : 'none';
+      document.getElementById('switchToRegister').style.display = isRegisterMode ? 'none' : 'block';
+      document.getElementById('switchToLogin').style.display = isRegisterMode ? 'block' : 'none';
+      document.querySelector('.logo h1').textContent = isRegisterMode ? '📝 Daftar Akun' : '💬 Private Chat';
+      document.querySelector('.logo p').textContent = isRegisterMode
+        ? 'Buat akun baru untuk chat pribadi' : 'Ruang chat pribadi untuk 2 orang';
+    }
+
+    document.getElementById('switchToRegister').addEventListener('click', e => {
+      e.preventDefault();
+      switchMode();
+    });
+
+    document.getElementById('switchToLogin').addEventListener('click', e => {
+      e.preventDefault();
+      switchMode();
+    });
+
+    document.getElementById('loginForm').addEventListener('submit', async e => {
+      e.preventDefault();
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!username || !password) {
+        return showMessage('Username dan password harus diisi');
+      }
+
+      setLoading(true);
+
+      try {
+        const res = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+          window.location.href = 'chat.html';  // FIXED REDIRECT
+        } else {
+          showMessage(data.error || 'Login gagal');
+        }
+      } catch (err) {
+        showMessage('Terjadi kesalahan koneksi');
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    document.getElementById('registerBtn').addEventListener('click', async () => {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!username || !password) {
+        return showMessage('Username dan password harus diisi');
+      }
+
+      setLoading(true);
+
+      try {
+        const res = await fetch('/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          showMessage('Akun berhasil dibuat! Silakan login.', 'success');
+          switchMode();
+        } else {
+          showMessage(data.error || 'Pendaftaran gagal');
+        }
+      } catch (err) {
+        showMessage('Terjadi kesalahan koneksi');
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>
