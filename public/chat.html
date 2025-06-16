@@ -64,16 +64,11 @@
         }
 
         .status-indicator {
-            position: absolute;
-            top: 70px;
-            left: 20px;
-            right: 20px;
             background: rgba(255, 255, 255, 0.95);
             color: #333;
-            padding: 10px;
-            border-radius: 8px;
+            padding: 10px 20px;
             font-size: 12px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
         }
 
         .user-status {
@@ -95,7 +90,6 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            margin-top: 60px; /* Space for status indicator */
             padding: 20px;
             overflow: hidden;
         }
@@ -274,6 +268,26 @@
     </style>
 </head>
 <body>
+    <script>
+        // Cek autentikasi di awal sebelum render
+        function checkAuth() {
+            const isLoggedIn = sessionStorage.getItem('isLoggedIn');
+            const currentUser = sessionStorage.getItem('currentUser');
+            
+            if (isLoggedIn !== 'true' || !currentUser) {
+                // Redirect ke login jika belum login
+                window.location.href = 'login.html';
+                return false;
+            }
+            return true;
+        }
+
+        // Jika belum login, langsung redirect tanpa render halaman
+        if (!checkAuth()) {
+            document.body.innerHTML = '<div style="text-align: center; padding: 50px;">Redirecting to login...</div>';
+        }
+    </script>
+
     <div class="header">
         <h1>💬 Private Chat</h1>
         <div class="user-info">
@@ -290,152 +304,76 @@
     </div>
 
     <div class="chat-container" id="chatContainer">
-        <!-- Content will be loaded here -->
+        <div class="messages" id="messages">
+            <div class="empty-chat">
+                Belum ada pesan. Mulai percakapan! 💭
+            </div>
+        </div>
+        
+        <div class="input-area">
+            <input 
+                type="text" 
+                id="messageInput" 
+                placeholder="Ketik pesan..." 
+                maxlength="500"
+            />
+            <button id="sendButton">Kirim</button>
+        </div>
     </div>
 
     <script>
         let currentUser = null;
-        let onlineUsers = [];
         let messages = [];
         let messageId = 1;
 
-        // Check if user is logged in
-        function checkAuth() {
-            const userData = localStorage.getItem('currentUser');
-            if (!userData) {
-                showLoginRequired();
-                return false;
-            }
-            
+        // Initialize aplikasi
+        function initializeApp() {
+            // Parse current user dari session
             try {
+                const userData = sessionStorage.getItem('currentUser');
                 currentUser = JSON.parse(userData);
-                if (!currentUser || !currentUser.username) {
-                    showLoginRequired();
-                    return false;
-                }
-                return true;
-            } catch (e) {
-                showLoginRequired();
-                return false;
-            }
-        }
-
-        function showLoginRequired() {
-            const chatContainer = document.getElementById('chatContainer');
-            chatContainer.innerHTML = `
-                <div class="login-required">
-                    <h2>Akses Ditolak</h2>
-                    <p>Anda harus login terlebih dahulu untuk menggunakan chat ini.</p>
-                    <button onclick="goToLogin()">Pergi ke Halaman Login</button>
-                </div>
-            `;
-            
-            // Hide header controls
-            document.getElementById('currentUser').textContent = 'Tidak ada user yang login';
-            document.getElementById('statusIndicator').style.display = 'none';
-        }
-
-        function goToLogin() {
-            window.location.href = 'login.html';
-        }
-
-        function initializeChat() {
-            const chatContainer = document.getElementById('chatContainer');
-            chatContainer.innerHTML = `
-                <div class="messages" id="messages">
-                    <div class="empty-chat">
-                        Belum ada pesan. Mulai percakapan! 💭
-                    </div>
-                </div>
                 
-                <div class="input-area">
-                    <input 
-                        type="text" 
-                        id="messageInput" 
-                        placeholder="Ketik pesan..." 
-                        maxlength="500"
-                    />
-                    <button id="sendButton">Kirim</button>
-                </div>
-            `;
-            
-            // Set current user display
+                if (!currentUser || !currentUser.username) {
+                    throw new Error('Invalid user data');
+                }
+            } catch (e) {
+                console.error('Error parsing user data:', e);
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Set display user info
             document.getElementById('currentUser').textContent = `Halo, ${currentUser.username}!`;
             
             // Initialize event listeners
             initializeEventListeners();
             
-            // Add current user to online users list
-            addUserToOnlineList(currentUser);
-            
-            // Load existing messages
+            // Load pesan yang ada
             loadMessages();
+            
+            // Update status user
+            updateUserStatus();
+            
+            // Auto-update status setiap 30 detik
+            setInterval(updateUserStatus, 30000);
         }
 
         function initializeEventListeners() {
-            const sendButton = document.getElementById('sendButton');
-            const messageInput = document.getElementById('messageInput');
+            // Send message
+            document.getElementById('sendButton').addEventListener('click', sendMessage);
             
-            if (sendButton) {
-                sendButton.addEventListener('click', sendMessage);
-            }
-            
-            if (messageInput) {
-                messageInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        sendMessage();
-                    }
-                });
-            }
-            
-            document.getElementById('clearAllBtn').addEventListener('click', confirmClearAll);
-            document.getElementById('logoutBtn').addEventListener('click', logout);
-        }
-
-        function addUserToOnlineList(user) {
-            // Check if user already exists in online list
-            const existingUserIndex = onlineUsers.findIndex(u => u.username === user.username);
-            
-            if (existingUserIndex === -1) {
-                // Add new user
-                onlineUsers.push({
-                    username: user.username,
-                    isOnline: true,
-                    lastSeen: new Date()
-                });
-            } else {
-                // Update existing user status
-                onlineUsers[existingUserIndex].isOnline = true;
-                onlineUsers[existingUserIndex].lastSeen = new Date();
-            }
-            
-            updateUserStatus();
-        }
-
-        function updateUserStatus() {
-            const statusDiv = document.getElementById('usersStatus');
-            
-            if (onlineUsers.length === 0) {
-                statusDiv.innerHTML = '<div class="user-status"><span>Tidak ada user online</span></div>';
-                return;
-            }
-            
-            let statusHtml = '';
-            
-            onlineUsers.forEach(user => {
-                const isOnline = user.isOnline && (new Date() - new Date(user.lastSeen)) < 300000; // 5 minutes
-                const lastSeen = isOnline ? 'Online' : `Terakhir online: ${new Date(user.lastSeen).toLocaleString('id-ID')}`;
-                const statusClass = isOnline ? 'online' : 'offline';
-                
-                statusHtml += `
-                    <div class="user-status">
-                        <span>${user.username}</span>
-                        <span class="${statusClass}">${lastSeen}</span>
-                    </div>
-                `;
+            // Enter key untuk send
+            document.getElementById('messageInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
             });
             
-            statusDiv.innerHTML = statusHtml;
+            // Clear all messages
+            document.getElementById('clearAllBtn').addEventListener('click', confirmClearAll);
+            
+            // Logout
+            document.getElementById('logoutBtn').addEventListener('click', logout);
         }
 
         function loadMessages() {
@@ -443,7 +381,7 @@
             if (savedMessages) {
                 try {
                     messages = JSON.parse(savedMessages);
-                    displayMessages(messages);
+                    displayMessages();
                 } catch (e) {
                     console.error('Error loading messages:', e);
                     messages = [];
@@ -455,18 +393,16 @@
             localStorage.setItem('chatMessages', JSON.stringify(messages));
         }
 
-        function displayMessages(messageList) {
+        function displayMessages() {
             const messagesDiv = document.getElementById('messages');
             
-            if (!messagesDiv) return;
-            
-            if (messageList.length === 0) {
+            if (messages.length === 0) {
                 messagesDiv.innerHTML = '<div class="empty-chat">Belum ada pesan. Mulai percakapan! 💭</div>';
                 return;
             }
 
             messagesDiv.innerHTML = '';
-            messageList.forEach(message => {
+            messages.forEach(message => {
                 addMessageToDisplay(message, false);
             });
             scrollToBottom();
@@ -475,9 +411,7 @@
         function addMessageToDisplay(message, scroll = true) {
             const messagesDiv = document.getElementById('messages');
             
-            if (!messagesDiv) return;
-            
-            // Remove empty chat message if exists
+            // Remove empty chat message jika ada
             const emptyChat = messagesDiv.querySelector('.empty-chat');
             if (emptyChat) {
                 emptyChat.remove();
@@ -509,8 +443,6 @@
 
         function sendMessage() {
             const input = document.getElementById('messageInput');
-            if (!input) return;
-            
             const text = input.value.trim();
             
             if (!text) return;
@@ -522,38 +454,58 @@
                 timestamp: new Date().toISOString()
             };
 
-            // Add to messages array
+            // Add ke array messages
             messages.push(message);
             
-            // Save messages
+            // Save ke localStorage
             saveMessages();
             
             // Clear input
             input.value = '';
             
-            // Add message to display
+            // Add ke display
             addMessageToDisplay(message);
-            
-            // Update user activity
-            addUserToOnlineList(currentUser);
             
             showNotification('Pesan terkirim!', 'success');
         }
 
         function clearMessages() {
             const messagesDiv = document.getElementById('messages');
-            if (messagesDiv) {
-                messagesDiv.innerHTML = '<div class="empty-chat">Belum ada pesan. Mulai percakapan! 💭</div>';
-            }
+            messagesDiv.innerHTML = '<div class="empty-chat">Belum ada pesan. Mulai percakapan! 💭</div>';
             messages = [];
             saveMessages();
         }
 
+        function updateUserStatus() {
+            const statusDiv = document.getElementById('usersStatus');
+            const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+            
+            if (registeredUsers.length === 0) {
+                statusDiv.innerHTML = '<div class="user-status"><span>Tidak ada user terdaftar</span></div>';
+                return;
+            }
+            
+            let statusHtml = '';
+            
+            registeredUsers.forEach(user => {
+                const isCurrentUser = user.username === currentUser.username;
+                const statusClass = isCurrentUser ? 'online' : 'offline';
+                const statusText = isCurrentUser ? 'Online (Anda)' : 'Offline';
+                
+                statusHtml += `
+                    <div class="user-status">
+                        <span>${user.username}</span>
+                        <span class="${statusClass}">${statusText}</span>
+                    </div>
+                `;
+            });
+            
+            statusDiv.innerHTML = statusHtml;
+        }
+
         function scrollToBottom() {
             const messagesDiv = document.getElementById('messages');
-            if (messagesDiv) {
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            }
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
         function escapeHtml(text) {
@@ -600,27 +552,42 @@
 
         function logout() {
             if (confirm('Apakah Anda yakin ingin keluar?')) {
-                // Remove current user from localStorage
-                localStorage.removeItem('currentUser');
+                // Clear session
+                sessionStorage.removeItem('isLoggedIn');
+                sessionStorage.removeItem('currentUser');
                 
-                showNotification('Mengarahkan ke halaman login...', 'success');
+                showNotification('Berhasil logout. Mengarahkan ke login...', 'success');
                 setTimeout(() => {
                     window.location.href = 'login.html';
                 }, 1000);
             }
         }
 
-        // Update user status periodically
-        setInterval(() => {
-            if (currentUser) {
-                addUserToOnlineList(currentUser);
+        // Auto-delete pesan yang lebih dari 24 jam
+        function autoDeleteOldMessages() {
+            const now = new Date();
+            const cutoffTime = now.getTime() - (24 * 60 * 60 * 1000); // 24 jam lalu
+            
+            const originalLength = messages.length;
+            messages = messages.filter(message => {
+                return new Date(message.timestamp).getTime() > cutoffTime;
+            });
+            
+            if (messages.length !== originalLength) {
+                saveMessages();
+                displayMessages();
+                console.log(`Auto-deleted ${originalLength - messages.length} old messages`);
             }
-        }, 60000); // Update every minute
-
-        // Initialize the application
-        if (checkAuth()) {
-            initializeChat();
         }
+
+        // Jalankan auto-delete setiap 1 jam
+        setInterval(autoDeleteOldMessages, 60 * 60 * 1000);
+
+        // Initialize saat halaman dimuat
+        document.addEventListener('DOMContentLoaded', function() {
+            autoDeleteOldMessages(); // Hapus pesan lama saat start
+            initializeApp();
+        });
     </script>
 </body>
 </html>
