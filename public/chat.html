@@ -222,6 +222,33 @@
             background: #f44336;
         }
 
+        .login-required {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            background: white;
+            border-radius: 10px;
+            margin: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .login-required h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .login-required button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+
         @media (max-width: 768px) {
             .header {
                 padding: 10px 15px;
@@ -262,162 +289,141 @@
         <div id="usersStatus"></div>
     </div>
 
-    <div class="chat-container">
-        <div class="messages" id="messages">
-            <div class="empty-chat">
-                Belum ada pesan. Mulai percakapan! 💭
-            </div>
-        </div>
-        
-        <div class="input-area">
-            <input 
-                type="text" 
-                id="messageInput" 
-                placeholder="Ketik pesan..." 
-                maxlength="500"
-            />
-            <button id="sendButton">Kirim</button>
-        </div>
+    <div class="chat-container" id="chatContainer">
+        <!-- Content will be loaded here -->
     </div>
 
     <script>
-        // Simulate Socket.IO functionality for demo purposes
-        const socket = {
-            on: function(event, callback) {
-                // Store callbacks for later use
-                this.callbacks = this.callbacks || {};
-                this.callbacks[event] = callback;
-            },
-            emit: function(event, data) {
-                console.log('Emitting:', event, data);
-                // Simulate server responses
-                setTimeout(() => {
-                    if (event === 'userJoin') {
-                        this.callbacks.userStatusUpdate && this.callbacks.userStatusUpdate({
-                            users: [
-                                { id: 1, username: 'User1', isOnline: true, lastSeen: new Date() },
-                                { id: 2, username: 'User2', isOnline: false, lastSeen: new Date(Date.now() - 300000) }
-                            ]
-                        });
-                    }
-                }, 100);
-            },
-            callbacks: {}
-        };
-
         let currentUser = null;
-        let users = [];
+        let onlineUsers = [];
         let messages = [];
+        let messageId = 1;
 
-        // Initialize user data
-        function initializeUser() {
-            const savedUser = localStorage.getItem('user');
-            if (savedUser) {
-                currentUser = JSON.parse(savedUser);
-            } else {
-                // Create a demo user
-                currentUser = {
-                    id: 1,
-                    username: 'Demo User'
-                };
-                localStorage.setItem('user', JSON.stringify(currentUser));
+        // Check if user is logged in
+        function checkAuth() {
+            const userData = localStorage.getItem('currentUser');
+            if (!userData) {
+                showLoginRequired();
+                return false;
             }
-            document.getElementById('currentUser').textContent = `Halo, ${currentUser.username}!`;
+            
+            try {
+                currentUser = JSON.parse(userData);
+                if (!currentUser || !currentUser.username) {
+                    showLoginRequired();
+                    return false;
+                }
+                return true;
+            } catch (e) {
+                showLoginRequired();
+                return false;
+            }
         }
 
-        // Socket events simulation
-        socket.on('connect', () => {
-            socket.emit('userJoin', currentUser);
-        });
-
-        socket.on('loadMessages', (messages) => {
-            displayMessages(messages);
-        });
-
-        socket.on('messageReceived', (message) => {
-            addMessage(message);
-        });
-
-        socket.on('messagesCleared', () => {
-            clearMessages();
-            showNotification('Semua pesan telah dihapus', 'success');
-        });
-
-        socket.on('messagesUpdated', (messages) => {
-            displayMessages(messages);
-        });
-
-        socket.on('userStatusUpdate', (data) => {
-            users = data.users;
-            updateUserStatus();
-        });
-
-        // Functions
-        function displayMessages(messageList) {
-            const messagesDiv = document.getElementById('messages');
-            
-            if (messageList.length === 0) {
-                messagesDiv.innerHTML = '<div class="empty-chat">Belum ada pesan. Mulai percakapan! 💭</div>';
-                return;
-            }
-
-            messagesDiv.innerHTML = '';
-            messageList.forEach(message => {
-                addMessage(message, false);
-            });
-            scrollToBottom();
-        }
-
-        function addMessage(message, scroll = true) {
-            const messagesDiv = document.getElementById('messages');
-            
-            // Remove empty chat message if exists
-            const emptyChat = messagesDiv.querySelector('.empty-chat');
-            if (emptyChat) {
-                emptyChat.remove();
-            }
-
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${message.userId === currentUser.id ? 'own' : 'other'}`;
-            
-            const messageTime = new Date(message.timestamp).toLocaleString('id-ID', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-
-            messageDiv.innerHTML = `
-                <div class="message-header">${message.username}</div>
-                <div class="message-text">${escapeHtml(message.text)}</div>
-                <div class="message-time">${messageTime}</div>
+        function showLoginRequired() {
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = `
+                <div class="login-required">
+                    <h2>Akses Ditolak</h2>
+                    <p>Anda harus login terlebih dahulu untuk menggunakan chat ini.</p>
+                    <button onclick="goToLogin()">Pergi ke Halaman Login</button>
+                </div>
             `;
-
-            messagesDiv.appendChild(messageDiv);
             
-            if (scroll) {
-                scrollToBottom();
+            // Hide header controls
+            document.getElementById('currentUser').textContent = 'Tidak ada user yang login';
+            document.getElementById('statusIndicator').style.display = 'none';
+        }
+
+        function goToLogin() {
+            window.location.href = 'login.html';
+        }
+
+        function initializeChat() {
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = `
+                <div class="messages" id="messages">
+                    <div class="empty-chat">
+                        Belum ada pesan. Mulai percakapan! 💭
+                    </div>
+                </div>
+                
+                <div class="input-area">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Ketik pesan..." 
+                        maxlength="500"
+                    />
+                    <button id="sendButton">Kirim</button>
+                </div>
+            `;
+            
+            // Set current user display
+            document.getElementById('currentUser').textContent = `Halo, ${currentUser.username}!`;
+            
+            // Initialize event listeners
+            initializeEventListeners();
+            
+            // Add current user to online users list
+            addUserToOnlineList(currentUser);
+            
+            // Load existing messages
+            loadMessages();
+        }
+
+        function initializeEventListeners() {
+            const sendButton = document.getElementById('sendButton');
+            const messageInput = document.getElementById('messageInput');
+            
+            if (sendButton) {
+                sendButton.addEventListener('click', sendMessage);
             }
+            
+            if (messageInput) {
+                messageInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        sendMessage();
+                    }
+                });
+            }
+            
+            document.getElementById('clearAllBtn').addEventListener('click', confirmClearAll);
+            document.getElementById('logoutBtn').addEventListener('click', logout);
         }
 
-        function clearMessages() {
-            const messagesDiv = document.getElementById('messages');
-            messagesDiv.innerHTML = '<div class="empty-chat">Belum ada pesan. Mulai percakapan! 💭</div>';
-            messages = [];
-        }
-
-        function scrollToBottom() {
-            const messagesDiv = document.getElementById('messages');
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        function addUserToOnlineList(user) {
+            // Check if user already exists in online list
+            const existingUserIndex = onlineUsers.findIndex(u => u.username === user.username);
+            
+            if (existingUserIndex === -1) {
+                // Add new user
+                onlineUsers.push({
+                    username: user.username,
+                    isOnline: true,
+                    lastSeen: new Date()
+                });
+            } else {
+                // Update existing user status
+                onlineUsers[existingUserIndex].isOnline = true;
+                onlineUsers[existingUserIndex].lastSeen = new Date();
+            }
+            
+            updateUserStatus();
         }
 
         function updateUserStatus() {
             const statusDiv = document.getElementById('usersStatus');
+            
+            if (onlineUsers.length === 0) {
+                statusDiv.innerHTML = '<div class="user-status"><span>Tidak ada user online</span></div>';
+                return;
+            }
+            
             let statusHtml = '';
             
-            users.forEach(user => {
-                const isOnline = user.isOnline;
+            onlineUsers.forEach(user => {
+                const isOnline = user.isOnline && (new Date() - new Date(user.lastSeen)) < 300000; // 5 minutes
                 const lastSeen = isOnline ? 'Online' : `Terakhir online: ${new Date(user.lastSeen).toLocaleString('id-ID')}`;
                 const statusClass = isOnline ? 'online' : 'offline';
                 
@@ -432,34 +438,122 @@
             statusDiv.innerHTML = statusHtml;
         }
 
+        function loadMessages() {
+            const savedMessages = localStorage.getItem('chatMessages');
+            if (savedMessages) {
+                try {
+                    messages = JSON.parse(savedMessages);
+                    displayMessages(messages);
+                } catch (e) {
+                    console.error('Error loading messages:', e);
+                    messages = [];
+                }
+            }
+        }
+
+        function saveMessages() {
+            localStorage.setItem('chatMessages', JSON.stringify(messages));
+        }
+
+        function displayMessages(messageList) {
+            const messagesDiv = document.getElementById('messages');
+            
+            if (!messagesDiv) return;
+            
+            if (messageList.length === 0) {
+                messagesDiv.innerHTML = '<div class="empty-chat">Belum ada pesan. Mulai percakapan! 💭</div>';
+                return;
+            }
+
+            messagesDiv.innerHTML = '';
+            messageList.forEach(message => {
+                addMessageToDisplay(message, false);
+            });
+            scrollToBottom();
+        }
+
+        function addMessageToDisplay(message, scroll = true) {
+            const messagesDiv = document.getElementById('messages');
+            
+            if (!messagesDiv) return;
+            
+            // Remove empty chat message if exists
+            const emptyChat = messagesDiv.querySelector('.empty-chat');
+            if (emptyChat) {
+                emptyChat.remove();
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${message.username === currentUser.username ? 'own' : 'other'}`;
+            
+            const messageTime = new Date(message.timestamp).toLocaleString('id-ID', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            messageDiv.innerHTML = `
+                <div class="message-header">${escapeHtml(message.username)}</div>
+                <div class="message-text">${escapeHtml(message.text)}</div>
+                <div class="message-time">${messageTime}</div>
+            `;
+
+            messagesDiv.appendChild(messageDiv);
+            
+            if (scroll) {
+                scrollToBottom();
+            }
+        }
+
         function sendMessage() {
             const input = document.getElementById('messageInput');
+            if (!input) return;
+            
             const text = input.value.trim();
             
             if (!text) return;
 
             const message = {
-                id: Date.now(),
+                id: messageId++,
                 text: text,
-                userId: currentUser.id,
                 username: currentUser.username,
                 timestamp: new Date().toISOString()
             };
 
-            // Add to local messages array
+            // Add to messages array
             messages.push(message);
+            
+            // Save messages
+            saveMessages();
             
             // Clear input
             input.value = '';
             
             // Add message to display
-            addMessage(message);
+            addMessageToDisplay(message);
             
-            // Simulate receiving message from server
-            socket.emit('sendMessage', message);
+            // Update user activity
+            addUserToOnlineList(currentUser);
             
-            // Show notification for demo
             showNotification('Pesan terkirim!', 'success');
+        }
+
+        function clearMessages() {
+            const messagesDiv = document.getElementById('messages');
+            if (messagesDiv) {
+                messagesDiv.innerHTML = '<div class="empty-chat">Belum ada pesan. Mulai percakapan! 💭</div>';
+            }
+            messages = [];
+            saveMessages();
+        }
+
+        function scrollToBottom() {
+            const messagesDiv = document.getElementById('messages');
+            if (messagesDiv) {
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
         }
 
         function escapeHtml(text) {
@@ -500,42 +594,33 @@
         function confirmClearAll() {
             if (confirm('Apakah Anda yakin ingin menghapus semua pesan?')) {
                 clearMessages();
-                socket.emit('clearAllMessages');
+                showNotification('Semua pesan telah dihapus', 'success');
             }
         }
 
         function logout() {
             if (confirm('Apakah Anda yakin ingin keluar?')) {
-                localStorage.removeItem('user');
-                showNotification('Anda telah keluar', 'success');
+                // Remove current user from localStorage
+                localStorage.removeItem('currentUser');
+                
+                showNotification('Mengarahkan ke halaman login...', 'success');
                 setTimeout(() => {
-                    // In a real app, this would redirect to login page
-                    window.location.reload();
+                    window.location.href = 'login.html';
                 }, 1000);
             }
         }
 
-        // Event listeners
-        document.getElementById('sendButton').addEventListener('click', sendMessage);
-        
-        document.getElementById('messageInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendMessage();
+        // Update user status periodically
+        setInterval(() => {
+            if (currentUser) {
+                addUserToOnlineList(currentUser);
             }
-        });
-
-        document.getElementById('clearAllBtn').addEventListener('click', confirmClearAll);
-        document.getElementById('logoutBtn').addEventListener('click', logout);
+        }, 60000); // Update every minute
 
         // Initialize the application
-        initializeUser();
-        
-        // Simulate initial connection
-        setTimeout(() => {
-            socket.callbacks.connect && socket.callbacks.connect();
-        }, 500);
-
-        
+        if (checkAuth()) {
+            initializeChat();
+        }
     </script>
 </body>
 </html>
