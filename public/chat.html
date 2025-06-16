@@ -294,33 +294,10 @@
         </div>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script>
-        // Simulate Socket.IO (since it's not available in this environment)
-        const socket = {
-            emit: function(event, data) {
-                console.log(`Emitting ${event}:`, data);
-                // Simulate server response
-                setTimeout(() => {
-                    if (event === 'send-message') {
-                        this.receive('message', {
-                            id: Date.now(),
-                            username: currentUser.username,
-                            text: data.text,
-                            timestamp: new Date().toISOString()
-                        });
-                    }
-                }, 100);
-            },
-            on: function(event, callback) {
-                this.listeners = this.listeners || {};
-                this.listeners[event] = callback;
-            },
-            receive: function(event, data) {
-                if (this.listeners && this.listeners[event]) {
-                    this.listeners[event](data);
-                }
-            }
-        };
+        // Socket.IO connection (replace with actual socket.io when available)
+        let socket;
 
         let currentUser = null;
         let users = [];
@@ -329,17 +306,22 @@
         // Initialize
         async function init() {
             try {
-                // Simulate user authentication
-                currentUser = {
-                    id: 'user_' + Math.random().toString(36).substr(2, 9),
-                    username: 'User' + Math.floor(Math.random() * 1000),
-                    isOnline: true
-                };
+                // Get current user from server
+                const response = await fetch('/api/current-user');
+                const data = await response.json();
                 
+                if (data.error) {
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                currentUser = data.user;
+                
+                // Update UI with current user info
                 document.getElementById('myUsername').textContent = currentUser.username;
                 updateUserStatus(true);
                 
-                // Initialize socket connections
+                // Initialize socket connection
                 initializeSocket();
                 
                 // Load existing messages
@@ -348,18 +330,22 @@
                 // Setup event listeners
                 setupEventListeners();
                 
-                // Add some demo users
-                addDemoUsers();
-                
                 showNotification('Berhasil terhubung ke chat!');
                 
             } catch (error) {
                 console.error('Initialization error:', error);
-                showNotification('Gagal menginisialisasi chat', 'error');
+                // Fallback: redirect to login if can't get user data
+                window.location.href = '/login';
             }
         }
         
         function initializeSocket() {
+            // Initialize socket.io connection
+            socket = io();
+            
+            // Join chat room
+            socket.emit('join-chat', currentUser);
+            
             // Socket event listeners
             socket.on('message', (data) => {
                 addMessage(data);
@@ -387,6 +373,20 @@
                 clearMessages();
                 showNotification('Semua pesan telah dihapus');
             });
+            
+            socket.on('connect', () => {
+                updateUserStatus(true);
+                showNotification('Terhubung ke server');
+            });
+            
+            socket.on('disconnect', () => {
+                updateUserStatus(false);
+                showNotification('Terputus dari server', 'error');
+            });
+            
+            socket.on('connect_error', () => {
+                showNotification('Gagal terhubung ke server', 'error');
+            });
         }
         
         function setupEventListeners() {
@@ -413,7 +413,9 @@
             
             // Handle page unload
             window.addEventListener('beforeunload', () => {
-                socket.emit('user-disconnect', currentUser);
+                if (socket && currentUser) {
+                    socket.emit('user-disconnect', currentUser);
+                }
             });
         }
         
@@ -485,32 +487,19 @@
         }
         
         function loadMessages() {
-            // Simulate loading messages from server/storage
-            const savedMessages = localStorage.getItem('chatMessages');
-            if (savedMessages) {
-                try {
-                    const parsedMessages = JSON.parse(savedMessages);
-                    parsedMessages.forEach(msg => {
-                        // Only load messages from last 24 hours
-                        const messageTime = new Date(msg.timestamp);
-                        const now = new Date();
-                        const hoursDiff = (now - messageTime) / (1000 * 60 * 60);
-                        
-                        if (hoursDiff < 24) {
-                            addMessage(msg);
-                        }
-                    });
-                } catch (error) {
-                    console.error('Error loading messages:', error);
-                }
-            }
+            // Request messages from server
+            socket.emit('get-messages');
+            
+            socket.on('messages-loaded', (messagesList) => {
+                messagesList.forEach(msg => {
+                    addMessage(msg);
+                });
+            });
         }
         
         function clearAllMessages() {
             if (confirm('Yakin ingin menghapus semua pesan?')) {
                 socket.emit('clear-all-messages');
-                clearMessages();
-                localStorage.removeItem('chatMessages');
             }
         }
         
@@ -568,17 +557,6 @@
             updateUsersList(users);
         }
         
-        function addDemoUsers() {
-            const demoUsers = [
-                { id: 'demo1', username: 'Alice', isOnline: true },
-                { id: 'demo2', username: 'Bob', isOnline: false },
-                { id: 'demo3', username: 'Charlie', isOnline: true }
-            ];
-            
-            users = [currentUser, ...demoUsers];
-            updateUsersList(users);
-        }
-        
         function updateUserStatus(isOnline) {
             const statusIndicator = document.getElementById('myStatus');
             if (isOnline) {
@@ -595,19 +573,19 @@
         
         function logout() {
             if (confirm('Yakin ingin logout?')) {
-                // Clean up
-                socket.emit('user-disconnect', currentUser);
+                // Notify server about logout
+                socket.emit('user-logout', currentUser);
+                
+                // Disconnect socket
+                socket.disconnect();
                 
                 // Clear user data
                 currentUser = null;
                 users = [];
                 messages = [];
                 
-                // Redirect to login (simulate)
-                showNotification('Berhasil logout');
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 1000);
+                // Redirect to login
+                window.location.href = '/login';
             }
         }
         
@@ -634,18 +612,8 @@
             return div.innerHTML;
         }
         
-        // Auto-delete old messages (simulate)
-        setInterval(() => {
-            const now = new Date();
-            messages = messages.filter(msg => {
-                const messageTime = new Date(msg.timestamp);
-                const hoursDiff = (now - messageTime) / (1000 * 60 * 60);
-                return hoursDiff < 24;
-            });
-            
-            // Save to localStorage
-            localStorage.setItem('chatMessages', JSON.stringify(messages));
-        }, 60000); // Check every minute
+        // Auto-delete old messages handled by server
+        // Client just needs to listen for message deletion events
         
         // Initialize the app
         init();
