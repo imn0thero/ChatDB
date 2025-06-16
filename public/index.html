@@ -1,81 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Chat Selingkuh</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat</title>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
     <div class="chat-container">
-        <header>
-            <span id="partner"></span>
-            <span id="status">(Offline)</span>
-            <button onclick="deleteAll()">Hapus Semua</button>
-            <a href="/api/logout">Logout</a>
+        <header class="chat-header">
+            <div id="user-info">
+                <h2>Chat Room</h2>
+                <div id="other-user-status">Memuat...</div>
+            </div>
+            <div class="header-buttons">
+                 <button id="delete-all-btn">Hapus Semua Pesan</button>
+                 <form id="logout-form" action="/logout" method="post">
+                    <button type="submit">Logout</button>
+                </form>
+            </div>
         </header>
-        <div id="chat-box"></div>
-        <form id="chat-form">
-            <input type="text" id="message-input" placeholder="Ketik pesan..." required />
-            <button type="submit">Kirim</button>
-        </form>
+        <main id="chat-window" class="chat-window"></main>
+        <footer class="chat-input-area">
+            <form id="message-form">
+                <input type="text" id="message-input" placeholder="Ketik pesan..." autocomplete="off" required>
+                <button type="submit">Kirim</button>
+            </form>
+        </footer>
     </div>
-
-    <script>
-        const userId = getCookie("userId");
-
-        function getCookie(name) {
-            const value = "; " + document.cookie;
-            const parts = value.split("; " + name + "=");
-            if (parts.length == 2) return parts.pop().split(";").shift();
-        }
-
-        async function fetchMessages() {
-            const res = await fetch('/api/messages');
-            const messages = await res.json();
-            const partner = await (await fetch('/api/user')).json();
-
-            document.getElementById('partner').textContent = partner.username;
-            document.getElementById('status').textContent = partner.online ? '(Online)' : `(Offline sejak ${new Date(partner.lastOnline).toLocaleString()})`;
-
-            const chatBox = document.getElementById('chat-box');
-            chatBox.innerHTML = '';
-            messages.forEach(msg => {
-                const isMe = msg.sender === userId;
-                const time = new Date(msg.timestamp).toLocaleTimeString();
-                const div = document.createElement('div');
-                div.className = 'message ' + (isMe ? 'me' : 'other');
-                div.innerHTML = `<small>${time}</small><br>${msg.text}`;
-                chatBox.appendChild(div);
-            });
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-
-        async function sendMessage(e) {
-            e.preventDefault();
-            const input = document.getElementById('message-input');
-            const text = input.value.trim();
-            if (!text) return;
-
-            await fetch('/api/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text })
-            });
-
-            input.value = '';
-            fetchMessages();
-        }
-
-        async function deleteAll() {
-            await fetch('/api/delete-all', { method: 'POST' });
-            fetchMessages();
-        }
-
-        document.getElementById('chat-form').addEventListener('submit', sendMessage);
-
-        setInterval(fetchMessages, 2000);
-        fetch('/api/online', { method: 'POST' }); // update online status
-        fetchMessages();
-    </script>
+    <script src="/js/app.js"></script>
 </body>
 </html>
