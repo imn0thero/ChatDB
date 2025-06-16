@@ -535,28 +535,7 @@
             socket.callbacks.connect && socket.callbacks.connect();
         }, 500);
 
-        // Add some demo messages
-        setTimeout(() => {
-            const demoMessages = [
-                {
-                    id: 1,
-                    text: 'Halo! Selamat datang di chat private!',
-                    userId: 2,
-                    username: 'System',
-                    timestamp: new Date(Date.now() - 600000).toISOString()
-                },
-                {
-                    id: 2,
-                    text: 'Terima kasih! Aplikasi ini sangat keren!',
-                    userId: currentUser.id,
-                    username: currentUser.username,
-                    timestamp: new Date(Date.now() - 300000).toISOString()
-                }
-            ];
-            
-            messages = demoMessages;
-            displayMessages(messages);
-        }, 1000);
+        
     </script>
 </body>
 </html>
